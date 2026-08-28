@@ -73,8 +73,12 @@ const ApiClient = {
     for (let page = 1; page <= maxPages; page++) {
       const sep = path.includes('?') ? '&' : '?';
       const data = await this.get(`${path}${sep}per_page=${perPage}&page=${page}`);
-      results.push(...data);
-      if (data.length < perPage) break;
+      if (Array.isArray(data)) {
+        results.push(...data);
+        if (data.length < perPage) break;
+      } else {
+        break;
+      }
     }
     return results;
   },
@@ -97,6 +101,7 @@ class AppError extends Error {
 const DataProcessor = {
   // ─── Repositories ──────────────────────────────────────────
   processRepos(repos) {
+    if (!Array.isArray(repos)) return [];
     return repos.map(r => ({
       name: r.name,
       fullName: r.full_name,
@@ -142,12 +147,14 @@ const DataProcessor = {
 
   // ─── Commits ───────────────────────────────────────────────
   parseCommits(rawCommits) {
+    if (!Array.isArray(rawCommits)) return [];
     return rawCommits
-      .filter(c => c.commit?.author?.date)
+      .filter(c => c && c.commit?.author?.date)
       .map(c => {
         const d = new Date(c.commit.author.date);
+        if (isNaN(d.getTime())) return null;
         return {
-          sha: c.sha,
+          sha: c.sha || '',
           date: d,
           dateStr: d.toISOString().slice(0, 10), // YYYY-MM-DD
           hour: d.getHours(),
@@ -155,11 +162,15 @@ const DataProcessor = {
           month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
           repo: c._repo || '',
         };
-      });
+      })
+      .filter(Boolean);
   },
 
   // ─── Streaks ───────────────────────────────────────────────
   calculateStreaks(commits) {
+    if (!Array.isArray(commits) || commits.length === 0) {
+      return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
+    }
     const dateSets = [...new Set(commits.map(c => c.dateStr))].sort();
     if (dateSets.length === 0) {
       return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
@@ -171,7 +182,7 @@ const DataProcessor = {
     // Build day-gap array
     const gaps = [];
     for (let i = 1; i < dateSets.length; i++) {
-      const gap = (new Date(dateSets[i]) - new Date(dateSets[i - 1])) / 86400000;
+      const gap = Math.round((new Date(dateSets[i]) - new Date(dateSets[i - 1])) / 86400000);
       gaps.push(gap);
     }
 
@@ -188,7 +199,7 @@ const DataProcessor = {
     if (lastDate === today || lastDate === yesterday) {
       current = 1;
       for (let i = dateSets.length - 2; i >= 0; i--) {
-        const diff = (new Date(dateSets[i + 1]) - new Date(dateSets[i])) / 86400000;
+        const diff = Math.round((new Date(dateSets[i + 1]) - new Date(dateSets[i])) / 86400000);
         if (diff === 1) current++;
         else break;
       }
@@ -649,10 +660,10 @@ function renderActivitySummary(filtered, allCommits) {
       label: 'Daily Average', value: filtered.length > 0 && streaks.totalActive > 0
         ? (filtered.length / streaks.totalActive).toFixed(1) : '0', sub: 'commits/day'
     },
-    { label: 'Most Active', value: mostActiveDay?.name.slice(0, 3) || 'N/A', sub: mostActiveDay ? `${mostActiveDay.count} commits` : '' },
+    { label: 'Most Active', value: mostActiveDay && mostActiveDay.count > 0 ? mostActiveDay.name.slice(0, 3) : 'N/A', sub: mostActiveDay && mostActiveDay.count > 0 ? `${mostActiveDay.count} commits` : '' },
     {
-      label: 'Best Month', value: mostActiveMonth ? mostActiveMonth.month.slice(5) : 'N/A',
-      sub: mostActiveMonth ? `${mostActiveMonth.count} commits` : ''
+      label: 'Best Month', value: mostActiveMonth && mostActiveMonth.count > 0 ? mostActiveMonth.month.slice(5) : 'N/A',
+      sub: mostActiveMonth && mostActiveMonth.count > 0 ? `${mostActiveMonth.count} commits` : ''
     },
   ];
 
@@ -761,14 +772,15 @@ function renderStreaks(streaks) {
 }
 
 function renderDayChart(dayData) {
+  if (!dayData || dayData.length === 0) return;
   const max = Math.max(1, ...dayData.map(d => d.count));
-  const maxDay = dayData.reduce((a, b) => a.count > b.count ? a : b);
+  const maxDay = dayData.reduce((a, b) => a.count > b.count ? a : b, dayData[0]);
 
   $('day-bar-chart').innerHTML = dayData.map(d =>
     `<div class="bar-row">
       <span class="bar-day">${d.name.slice(0, 3)}</span>
       <div class="bar-track">
-        <div class="bar-fill${d.name === maxDay.name ? ' highlight' : ''}" style="width:${(d.count / max) * 100}%"></div>
+        <div class="bar-fill${d.name === maxDay.name && d.count > 0 ? ' highlight' : ''}" style="width:${(d.count / max) * 100}%"></div>
       </div>
       <span class="bar-count">${d.count}</span>
     </div>`
@@ -776,12 +788,13 @@ function renderDayChart(dayData) {
 }
 
 function renderTimeGrid(timeData) {
+  if (!timeData || timeData.length === 0) return;
   const max = Math.max(1, ...timeData.map(t => t.count));
   const total = timeData.reduce((s, t) => s + t.count, 0);
-  const maxSlot = timeData.reduce((a, b) => a.count > b.count ? a : b);
+  const maxSlot = timeData.reduce((a, b) => a.count > b.count ? a : b, timeData[0]);
 
   $('time-grid').innerHTML = timeData.map(t =>
-    `<div class="time-quadrant${t.label === maxSlot.label ? ' highlight-time' : ''}">
+    `<div class="time-quadrant${t.label === maxSlot.label && t.count > 0 ? ' highlight-time' : ''}">
       <span class="time-q-label">${t.emoji} ${t.label}</span>
       <span class="time-q-count">${t.count}</span>
       <span class="time-q-pct">${total > 0 ? ((t.count / total) * 100).toFixed(0) : 0}%</span>
@@ -903,38 +916,55 @@ function renderRepoHighlights() {
   const mostActive = [...sorted].sort((a, b) => b.updatedAt - a.updatedAt)[0];
   const mostForked = [...sorted].sort((a, b) => b.forks - a.forks)[0];
 
-  if (!mostStarred) return;
-
-  $('repo-highlights').innerHTML = [
-    { badge: 'Most Starred', repo: mostStarred, meta: `${mostStarred.stars} stars` },
-    { badge: 'Most Recent', repo: mostActive, meta: `Updated ${relativeDate(mostActive.updatedAt)}` },
-    { badge: 'Most Forked', repo: mostForked, meta: `${mostForked.forks} forks` },
-  ].map(h =>
-    `<div class="repo-highlight-card">
-      <span class="rh-badge">${h.badge}</span>
-      <span class="rh-name">${h.repo.name}</span>
-      <span class="rh-meta">${h.meta}</span>
-    </div>`
-  ).join('');
+  const highlightsEl = $('repo-highlights');
+  if (highlightsEl) {
+    if (mostStarred) {
+      highlightsEl.innerHTML = [
+        { badge: 'Most Starred', repo: mostStarred, meta: `${mostStarred.stars} stars` },
+        { badge: 'Most Recent', repo: mostActive, meta: `Updated ${relativeDate(mostActive.updatedAt)}` },
+        { badge: 'Most Forked', repo: mostForked, meta: `${mostForked.forks} forks` },
+      ].map(h =>
+        `<div class="repo-highlight-card">
+          <span class="rh-badge">${h.badge}</span>
+          <span class="rh-name">${h.repo.name}</span>
+          <span class="rh-meta">${h.meta}</span>
+        </div>`
+      ).join('');
+    } else {
+      highlightsEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">No repository data available.</p>';
+    }
+  }
 
   // Populate language filter
   const langs = [...new Set(state.repos.map(r => r.language).filter(Boolean))].sort();
   const sel = $('lang-filter');
-  sel.innerHTML = `<option value="">All Languages</option>` +
-    langs.map(l => `<option value="${l}">${l}</option>`).join('');
+  if (sel) {
+    sel.innerHTML = `<option value="">All Languages</option>` +
+      langs.map(l => `<option value="${l}">${l}</option>`).join('');
+  }
 }
 
 /* ============================================================
    RENDER — Languages
    ============================================================ */
 function renderLanguages(langStats) {
-  if (langStats.length === 0) return;
+  const bars = $('lang-bars');
+  const tbody = $('lang-tbody');
+  const legend = $('donut-legend');
+  const svg = $('donut-svg');
+
+  if (!langStats || langStats.length === 0) {
+    if (bars) bars.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">No language data available.</p>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No language data available</td></tr>';
+    if (legend) legend.innerHTML = '';
+    if (svg) svg.innerHTML = '';
+    return;
+  }
 
   // Donut chart (SVG)
   renderDonut(langStats.slice(0, 10));
 
   // Bar chart
-  const bars = $('lang-bars');
   bars.innerHTML = langStats.slice(0, 12).map(l =>
     `<div class="lang-bar-row">
       <div class="lang-bar-header">
@@ -950,7 +980,7 @@ function renderLanguages(langStats) {
   ).join('');
 
   // Table
-  $('lang-tbody').innerHTML = langStats.map(l =>
+  tbody.innerHTML = langStats.map(l =>
     `<tr>
       <td>${l.rank}</td>
       <td><span class="lang-dot" style="background:${getLangColor(l.name)}"></span>${l.name}</td>
@@ -1057,14 +1087,14 @@ function renderInsights(insights) {
 /* ============================================================
    ERROR HANDLING
    ============================================================ */
-function showError(code) {
+function showError(code, customMessage) {
   const messages = {
     not_found: 'GitHub profile not found. Please check the username and try again.',
-    rate_limit: 'GitHub API rate limit reached. Please try again in a few minutes.',
-    api_error: 'Could not reach the GitHub API. Please try again later.',
+    rate_limit: 'GitHub API rate limit reached (60 req/h). Add a GitHub Personal Access Token in CONFIG.GITHUB_TOKEN or try again later.',
+    api_error: 'Could not reach the GitHub API. Please check your network or try again later.',
     default: 'An unexpected error occurred. Please try again.',
   };
-  $('error-message').textContent = messages[code] || messages.default;
+  $('error-message').textContent = (code && messages[code]) || customMessage || messages.default;
   showEl($('error-banner'));
 }
 
@@ -1148,7 +1178,7 @@ async function analyzeProfile(username) {
     const commitPromises = topRepos.map(r =>
       ApiClient.get(
         `/repos/${username}/${r.name}/commits?author=${username}&per_page=${CONFIG.COMMITS_PER_REPO}`
-      ).then(data => data.map(c => ({ ...c, _repo: r.name })))
+      ).then(data => Array.isArray(data) ? data.map(c => ({ ...c, _repo: r.name })) : [])
         .catch(() => [])
     );
     const rawCommitsArrays = await Promise.all(commitPromises);
@@ -1196,33 +1226,6 @@ async function analyzeProfile(username) {
     renderLanguages(langStats);
     renderInsights(state.insights);
 
-    // Init period buttons
-    document.querySelectorAll('.period-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.period = btn.dataset.period === 'all' ? 'all' : Number(btn.dataset.period);
-        renderActivity(state.commits, state.period);
-      });
-    });
-
-    // Init repo controls
-    $('repo-search').addEventListener('input', e => {
-      state.repoQuery = e.target.value.trim();
-      state.repoPage = 1;
-      renderRepositories();
-    });
-    $('lang-filter').addEventListener('change', e => {
-      state.repoLang = e.target.value;
-      state.repoPage = 1;
-      renderRepositories();
-    });
-    $('sort-select').addEventListener('change', e => {
-      state.repoSort = e.target.value;
-      state.repoPage = 1;
-      renderRepositories();
-    });
-
     /* ── Switch screens ── */
     await new Promise(r => setTimeout(r, 500));
     hideEl($('loading-screen'));
@@ -1233,7 +1236,7 @@ async function analyzeProfile(username) {
     console.error('Analysis error:', err);
     hideEl($('loading-screen'));
     showEl($('landing'));
-    showError(err.code || 'default');
+    showError(err.code, err.message);
   }
 }
 
@@ -1242,6 +1245,33 @@ async function analyzeProfile(username) {
    ============================================================ */
 function init() {
   initNavigation();
+
+  // Period buttons
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.period = btn.dataset.period === 'all' ? 'all' : Number(btn.dataset.period);
+      renderActivity(state.commits, state.period);
+    });
+  });
+
+  // Repo controls
+  $('repo-search')?.addEventListener('input', e => {
+    state.repoQuery = e.target.value.trim();
+    state.repoPage = 1;
+    renderRepositories();
+  });
+  $('lang-filter')?.addEventListener('change', e => {
+    state.repoLang = e.target.value;
+    state.repoPage = 1;
+    renderRepositories();
+  });
+  $('sort-select')?.addEventListener('change', e => {
+    state.repoSort = e.target.value;
+    state.repoPage = 1;
+    renderRepositories();
+  });
 
   // New search
   function resetToLanding() {
@@ -1254,24 +1284,24 @@ function init() {
   $('mobile-new-search')?.addEventListener('click', resetToLanding);
 
   // Analyze button
-  $('analyze-btn').addEventListener('click', () => {
-    const username = $('username-input').value.trim();
+  $('analyze-btn')?.addEventListener('click', () => {
+    const username = $('username-input')?.value.trim();
     if (!username) {
-      $('username-input').focus();
+      $('username-input')?.focus();
       return;
     }
     analyzeProfile(username);
   });
 
   // Enter key
-  $('username-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('analyze-btn').click();
+  $('username-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('analyze-btn')?.click();
   });
 
   // Example chips
   document.querySelectorAll('.example-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      $('username-input').value = chip.dataset.user;
+      if ($('username-input')) $('username-input').value = chip.dataset.user;
       analyzeProfile(chip.dataset.user);
     });
   });
