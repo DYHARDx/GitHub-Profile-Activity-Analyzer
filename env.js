@@ -1,5 +1,0 @@
-window.ENV = {
-  GITHUB_TOKEN: "",
-
-  GEMINI_API_KEY: "AQ.Ab8RN6JlO6pqnIdAviaXgkAJIeLPfeUT5diO3C9HHj6zPqRgaA"
-};

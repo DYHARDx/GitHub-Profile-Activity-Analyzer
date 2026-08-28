@@ -14,8 +14,8 @@ import {
 function showError(code, customMessage) {
   const messages = {
     not_found: 'GitHub profile not found. Please check the username and try again.',
-    invalid_token: 'Invalid GitHub Personal Access Token. Please clear or update your token.',
-    rate_limit: 'GitHub API rate limit reached. Tip: Add a free GitHub token in Settings (top right) to increase limit to 5,000 req/hr.',
+    invalid_token: 'Invalid GitHub Personal Access Token. Please update or clear the token in your env.js file.',
+    rate_limit: 'GitHub API rate limit reached (60 req/hr). Tip: Add a free GitHub token in env.js to increase the limit to 5,000 req/hr.',
     network_error: 'Network connection error. Please check your internet connection.',
     api_error: 'Could not reach GitHub API. Please try again later.',
     default: 'An unexpected error occurred. Please try again.',
