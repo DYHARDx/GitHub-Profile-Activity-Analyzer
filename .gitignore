@@ -1,7 +1,0 @@
-# Environment Variables
-.env
-.env.local
-
-# OS generated files
-.DS_Store
-Thumbs.db

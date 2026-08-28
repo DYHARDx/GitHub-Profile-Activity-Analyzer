@@ -1,30 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="GitHub Profile Activity Analyzer — Analyze coding activity, repositories, languages, and developer patterns with in-depth analytics." />
+  <meta name="description"
+    content="GitHub Profile Activity Analyzer — Analyze coding activity, repositories, languages, and developer patterns with in-depth analytics." />
   <title>GitHub Profile Activity Analyzer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="html2canvas.min.js"></script>
 </head>
+
 <body>
 
   <section id="landing" class="landing-section" aria-label="Landing page">
     <div class="landing-bg-grid" aria-hidden="true"></div>
     <div class="landing-top-actions">
+      <button id="theme-toggle-btn" class="icon-btn" type="button" aria-label="Toggle Theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      </button>
       <button id="landing-settings-btn" class="neu-button secondary small" type="button" aria-label="API Settings">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
         API Settings
       </button>
     </div>
     <div class="landing-content">
       <div class="landing-logo" aria-hidden="true">
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="48" height="48" rx="14" fill="currentColor" class="logo-bg"/>
-          <path d="M24 8C15.163 8 8 15.163 8 24c0 7.074 4.584 13.072 10.944 15.185.8.147 1.092-.347 1.092-.771 0-.38-.014-1.386-.022-2.72-4.451.967-5.39-2.146-5.39-2.146-.728-1.849-1.776-2.341-1.776-2.341-1.452-.992.11-.972.11-.972 1.606.113 2.452 1.649 2.452 1.649 1.426 2.444 3.742 1.738 4.654 1.329.145-1.033.558-1.738 1.016-2.138-3.554-.404-7.29-1.777-7.29-7.908 0-1.747.624-3.175 1.648-4.295-.165-.405-.714-2.031.156-4.234 0 0 1.344-.43 4.401 1.64A15.31 15.31 0 0 1 24 14.52c1.36.006 2.728.184 4.009.538 3.055-2.07 4.397-1.64 4.397-1.64.872 2.203.323 3.829.158 4.234 1.027 1.12 1.646 2.548 1.646 4.295 0 6.147-3.742 7.5-7.306 7.895.574.494 1.085 1.469 1.085 2.961 0 2.138-.02 3.862-.02 4.388 0 .428.288.925 1.1.769C35.42 37.068 40 31.072 40 24c0-8.837-7.163-16-16-16z" fill="white"/>
+          <rect width="48" height="48" rx="14" fill="currentColor" class="logo-bg" />
+          <path
+            d="M24 8C15.163 8 8 15.163 8 24c0 7.074 4.584 13.072 10.944 15.185.8.147 1.092-.347 1.092-.771 0-.38-.014-1.386-.022-2.72-4.451.967-5.39-2.146-5.39-2.146-.728-1.849-1.776-2.341-1.776-2.341-1.452-.992.11-.972.11-.972 1.606.113 2.452 1.649 2.452 1.649 1.426 2.444 3.742 1.738 4.654 1.329.145-1.033.558-1.738 1.016-2.138-3.554-.404-7.29-1.777-7.29-7.908 0-1.747.624-3.175 1.648-4.295-.165-.405-.714-2.031.156-4.234 0 0 1.344-.43 4.401 1.64A15.31 15.31 0 0 1 24 14.52c1.36.006 2.728.184 4.009.538 3.055-2.07 4.397-1.64 4.397-1.64.872 2.203.323 3.829.158 4.234 1.027 1.12 1.646 2.548 1.646 4.295 0 6.147-3.742 7.5-7.306 7.895.574.494 1.085 1.469 1.085 2.961 0 2.138-.02 3.862-.02 4.388 0 .428.288.925 1.1.769C35.42 37.068 40 31.072 40 24c0-8.837-7.163-16-16-16z"
+            fill="white" />
         </svg>
       </div>
       <h1 class="landing-title">GitHub Profile Activity Analyzer</h1>
@@ -32,38 +48,38 @@
 
       <div class="search-container neu-card">
         <div class="search-input-wrapper neu-inset">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
           </svg>
-          <input
-            type="text"
-            id="username-input"
-            class="neu-input"
-            placeholder="Enter GitHub username"
-            autocomplete="off"
-            spellcheck="false"
-            aria-label="GitHub username"
-          />
+          <input type="text" id="username-input" class="neu-input" placeholder="Enter GitHub username"
+            autocomplete="off" spellcheck="false" aria-label="GitHub username" />
         </div>
         <button id="analyze-btn" class="neu-button primary" type="button" aria-label="Analyze GitHub profile">
           <span class="btn-text">Analyze Profile</span>
-          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
+          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </button>
       </div>
 
       <div class="landing-examples" aria-label="Example usernames">
+        <div id="recent-searches-container" class="recent-searches" hidden></div>
         <span class="examples-label">Try:</span>
-        <button class="example-chip" data-user="torvalds" type="button">torvalds</button>
+        <button class="example-chip" data-user="DYHARDx" type="button">DYHARDx</button>
         <button class="example-chip" data-user="gaearon" type="button">gaearon</button>
         <button class="example-chip" data-user="sindresorhus" type="button">sindresorhus</button>
       </div>
     </div>
 
     <div id="error-banner" class="error-banner" role="alert" aria-live="polite" hidden>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" x2="12" y1="8" y2="12" />
+        <line x1="12" x2="12.01" y1="16" y2="16" />
       </svg>
       <span id="error-message">An error occurred.</span>
       <button id="error-close" class="error-close" type="button" aria-label="Close error">x</button>
@@ -74,18 +90,28 @@
     <div class="loading-card neu-card">
       <div class="loading-spinner" aria-hidden="true">
         <svg viewBox="0 0 50 50" class="spinner-svg">
-          <circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="spinner-track"/>
-          <circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="spinner-arc"/>
+          <circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="spinner-track" />
+          <circle cx="25" cy="25" r="20" fill="none" stroke-width="4" class="spinner-arc" />
         </svg>
       </div>
       <h2 class="loading-title">Analyzing Profile</h2>
       <p id="loading-status" class="loading-status">Fetching profile...</p>
       <div class="loading-steps" aria-hidden="true">
-        <div class="loading-step" data-step="profile"><div class="step-dot"></div><span>Profile</span></div>
-        <div class="loading-step" data-step="repos"><div class="step-dot"></div><span>Repositories</span></div>
-        <div class="loading-step" data-step="languages"><div class="step-dot"></div><span>Languages</span></div>
-        <div class="loading-step" data-step="activity"><div class="step-dot"></div><span>Activity</span></div>
-        <div class="loading-step" data-step="insights"><div class="step-dot"></div><span>Insights</span></div>
+        <div class="loading-step" data-step="profile">
+          <div class="step-dot"></div><span>Profile</span>
+        </div>
+        <div class="loading-step" data-step="repos">
+          <div class="step-dot"></div><span>Repositories</span>
+        </div>
+        <div class="loading-step" data-step="languages">
+          <div class="step-dot"></div><span>Languages</span>
+        </div>
+        <div class="loading-step" data-step="activity">
+          <div class="step-dot"></div><span>Activity</span>
+        </div>
+        <div class="loading-step" data-step="insights">
+          <div class="step-dot"></div><span>Insights</span>
+        </div>
       </div>
     </div>
   </div>
@@ -96,8 +122,10 @@
       <div class="sidebar-header">
         <div class="sidebar-logo" aria-hidden="true">
           <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="#5b6af0"/>
-            <path d="M24 8C15.163 8 8 15.163 8 24c0 7.074 4.584 13.072 10.944 15.185.8.147 1.092-.347 1.092-.771 0-.38-.014-1.386-.022-2.72-4.451.967-5.39-2.146-5.39-2.146-.728-1.849-1.776-2.341-1.776-2.341-1.452-.992.11-.972.11-.972 1.606.113 2.452 1.649 2.452 1.649 1.426 2.444 3.742 1.738 4.654 1.329.145-1.033.558-1.738 1.016-2.138-3.554-.404-7.29-1.777-7.29-7.908 0-1.747.624-3.175 1.648-4.295-.165-.405-.714-2.031.156-4.234 0 0 1.344-.43 4.401 1.64A15.31 15.31 0 0 1 24 14.52c1.36.006 2.728.184 4.009.538 3.055-2.07 4.397-1.64 4.397-1.64.872 2.203.323 3.829.158 4.234 1.027 1.12 1.646 2.548 1.646 4.295 0 6.147-3.742 7.5-7.306 7.895.574.494 1.085 1.469 1.085 2.961 0 2.138-.02 3.862-.02 4.388 0 .428.288.925 1.1.769C35.42 37.068 40 31.072 40 24c0-8.837-7.163-16-16-16z" fill="white"/>
+            <rect width="48" height="48" rx="12" fill="#5b6af0" />
+            <path
+              d="M24 8C15.163 8 8 15.163 8 24c0 7.074 4.584 13.072 10.944 15.185.8.147 1.092-.347 1.092-.771 0-.38-.014-1.386-.022-2.72-4.451.967-5.39-2.146-5.39-2.146-.728-1.849-1.776-2.341-1.776-2.341-1.452-.992.11-.972.11-.972 1.606.113 2.452 1.649 2.452 1.649 1.426 2.444 3.742 1.738 4.654 1.329.145-1.033.558-1.738 1.016-2.138-3.554-.404-7.29-1.777-7.29-7.908 0-1.747.624-3.175 1.648-4.295-.165-.405-.714-2.031.156-4.234 0 0 1.344-.43 4.401 1.64A15.31 15.31 0 0 1 24 14.52c1.36.006 2.728.184 4.009.538 3.055-2.07 4.397-1.64 4.397-1.64.872 2.203.323 3.829.158 4.234 1.027 1.12 1.646 2.548 1.646 4.295 0 6.147-3.742 7.5-7.306 7.895.574.494 1.085 1.469 1.085 2.961 0 2.138-.02 3.862-.02 4.388 0 .428.288.925 1.1.769C35.42 37.068 40 31.072 40 24c0-8.837-7.163-16-16-16z"
+              fill="white" />
           </svg>
         </div>
         <span class="sidebar-brand">GH Analyzer</span>
@@ -105,48 +133,80 @@
 
       <nav class="sidebar-nav" aria-label="Dashboard sections">
         <button class="nav-item active" data-section="overview" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
           <span>Overview</span>
         </button>
         <button class="nav-item" data-section="activity" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
           <span>Activity</span>
         </button>
         <button class="nav-item" data-section="repositories" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <path d="M3 3h18v18H3zM3 9h18M9 21V9" />
+          </svg>
           <span>Repositories</span>
         </button>
         <button class="nav-item" data-section="languages" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
           <span>Languages</span>
         </button>
         <button class="nav-item" data-section="insights" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
           <span>Insights</span>
         </button>
       </nav>
 
       <div class="sidebar-footer">
         <button id="settings-btn" class="neu-button secondary small" type="button" aria-label="API Settings">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
           Settings
         </button>
         <button id="new-search-btn" class="neu-button secondary small" type="button">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
           New Search
         </button>
       </div>
     </aside>
 
     <div class="mobile-topbar">
-      <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">
+      <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle navigation"
+        aria-expanded="false" aria-controls="sidebar">
         <span class="hamburger"></span>
         <span class="hamburger"></span>
         <span class="hamburger"></span>
       </button>
       <span class="mobile-brand">GH Analyzer</span>
       <button id="mobile-new-search" class="icon-btn" type="button" aria-label="New search">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
       </button>
     </div>
 
@@ -167,14 +227,26 @@
             <p id="profile-bio" class="profile-bio"></p>
             <div class="profile-meta" id="profile-meta"></div>
             <div class="profile-stats" id="profile-stats"></div>
-            <a id="profile-link" href="#" target="_blank" rel="noopener noreferrer" class="neu-button secondary small profile-gh-link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+            <a id="profile-link" href="#" target="_blank" rel="noopener noreferrer"
+              class="neu-button secondary small profile-gh-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" x2="21" y1="14" y2="3" />
+              </svg>
               View on GitHub
             </a>
           </div>
         </div>
 
-        <h2 id="overview-heading" class="section-heading">Analytics Overview</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <h2 id="overview-heading" class="section-heading" style="margin-bottom: 0;">Analytics Overview</h2>
+          <button id="export-btn" class="neu-button secondary small" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export Stats
+          </button>
+        </div>
         <div class="stats-grid" id="stats-grid" role="list" aria-label="GitHub statistics"></div>
 
         <div class="score-row">
@@ -183,8 +255,8 @@
             <div class="score-display">
               <div class="score-ring" id="score-ring" aria-hidden="true">
                 <svg viewBox="0 0 120 120" class="score-svg">
-                  <circle cx="60" cy="60" r="50" class="score-track"/>
-                  <circle cx="60" cy="60" r="50" class="score-fill" id="score-circle"/>
+                  <circle cx="60" cy="60" r="50" class="score-track" />
+                  <circle cx="60" cy="60" r="50" class="score-fill" id="score-circle" />
                 </svg>
                 <div class="score-number">
                   <span id="score-value">--</span>
@@ -193,7 +265,8 @@
               </div>
               <div class="score-breakdown" id="score-breakdown" aria-label="Score breakdown"></div>
             </div>
-            <p class="score-disclaimer">This is a custom score calculated by this application. It is not an official GitHub metric.</p>
+            <p class="score-disclaimer">This is a custom score calculated by this application. It is not an official
+              GitHub metric.</p>
           </div>
 
           <div class="streak-mini-row">
@@ -216,12 +289,12 @@
         <h2 id="activity-heading" class="section-heading">Commit Activity</h2>
 
         <div class="period-selector neu-inset" role="group" aria-label="Select time period">
-          <button class="period-btn active" data-period="7" type="button">7 Days</button>
+          <button class="period-btn" data-period="7" type="button">7 Days</button>
           <button class="period-btn" data-period="30" type="button">30 Days</button>
           <button class="period-btn" data-period="90" type="button">3 Months</button>
           <button class="period-btn" data-period="180" type="button">6 Months</button>
           <button class="period-btn" data-period="365" type="button">1 Year</button>
-          <button class="period-btn" data-period="all" type="button">All</button>
+          <button class="period-btn active" data-period="all" type="button">All</button>
         </div>
 
         <div class="activity-summary" id="activity-summary" role="list"></div>
@@ -239,11 +312,16 @@
         <div class="streaks-card neu-card">
           <h3 class="chart-title">Streak Analysis</h3>
           <div class="streaks-grid">
-            <div class="streak-block neu-inset"><span class="streak-label">Current Streak</span><span class="streak-value" id="current-streak">--</span><span class="streak-unit">days</span></div>
-            <div class="streak-block neu-inset"><span class="streak-label">Longest Streak</span><span class="streak-value" id="longest-streak">--</span><span class="streak-unit">days</span></div>
-            <div class="streak-block neu-inset"><span class="streak-label">Total Active Days</span><span class="streak-value" id="total-active-days">--</span><span class="streak-unit">days</span></div>
-            <div class="streak-block neu-inset"><span class="streak-label">Avg Active / Week</span><span class="streak-value" id="avg-active-week">--</span><span class="streak-unit">days</span></div>
-            <div class="streak-block neu-inset"><span class="streak-label">Longest Inactive</span><span class="streak-value" id="longest-inactive">--</span><span class="streak-unit">days</span></div>
+            <div class="streak-block neu-inset"><span class="streak-label">Current Streak</span><span
+                class="streak-value" id="current-streak">--</span><span class="streak-unit">days</span></div>
+            <div class="streak-block neu-inset"><span class="streak-label">Longest Streak</span><span
+                class="streak-value" id="longest-streak">--</span><span class="streak-unit">days</span></div>
+            <div class="streak-block neu-inset"><span class="streak-label">Total Active Days</span><span
+                class="streak-value" id="total-active-days">--</span><span class="streak-unit">days</span></div>
+            <div class="streak-block neu-inset"><span class="streak-label">Avg Active / Week</span><span
+                class="streak-value" id="avg-active-week">--</span><span class="streak-unit">days</span></div>
+            <div class="streak-block neu-inset"><span class="streak-label">Longest Inactive</span><span
+                class="streak-value" id="longest-inactive">--</span><span class="streak-unit">days</span></div>
           </div>
         </div>
 
@@ -270,8 +348,13 @@
 
         <div class="repo-controls neu-card">
           <div class="repo-search-wrap neu-inset">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" id="repo-search" class="neu-input small" placeholder="Search repositories..." aria-label="Search repositories" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input type="text" id="repo-search" class="neu-input small" placeholder="Search repositories..."
+              aria-label="Search repositories" />
           </div>
           <div class="repo-filters">
             <select id="lang-filter" class="neu-select" aria-label="Filter by language">
@@ -312,7 +395,8 @@
           <div class="donut-card neu-card">
             <h3 class="chart-title">Language Distribution</h3>
             <div class="donut-wrap">
-              <svg id="donut-svg" viewBox="0 0 200 200" class="donut-svg" role="img" aria-label="Language donut chart"></svg>
+              <svg id="donut-svg" viewBox="0 0 200 200" class="donut-svg" role="img"
+                aria-label="Language donut chart"></svg>
               <div class="donut-center" id="donut-center">
                 <span class="donut-lang" id="donut-lang-name">Total</span>
                 <span class="donut-pct" id="donut-lang-pct">100%</span>
@@ -344,7 +428,8 @@
 
       <section class="content-section" id="section-insights" aria-labelledby="insights-heading" hidden>
         <h2 id="insights-heading" class="section-heading">Developer Insights</h2>
-        <p class="insights-disclaimer">Insights are derived from measured GitHub activity data only. No subjective claims are made about ability, intelligence, or career.</p>
+        <p class="insights-disclaimer">Insights are derived from measured GitHub activity data only. No subjective
+          claims are made about ability, intelligence, or career.</p>
         <div class="insights-grid" id="insights-grid">
           <div class="insight-loading neu-card">
             <div class="insight-spinner" aria-hidden="true"></div>
@@ -356,13 +441,15 @@
     </main>
   </div>
 
-  <div id="settings-modal" class="settings-modal" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div id="settings-modal" class="settings-modal" hidden role="dialog" aria-modal="true"
+    aria-labelledby="settings-title">
     <div class="settings-dialog neu-card">
       <div class="settings-header">
         <h3 id="settings-title" class="settings-title">API & Token Settings</h3>
         <button id="settings-close-btn" class="icon-btn" type="button" aria-label="Close settings">x</button>
       </div>
-      <p class="settings-desc">Optionally add personal API keys. Keys are saved securely in your browser's <code>localStorage</code> and never sent to external servers.</p>
+      <p class="settings-desc">Optionally add personal API keys. Keys are saved securely in your browser's
+        <code>localStorage</code> and never sent to external servers.</p>
 
       <div class="settings-form">
         <label for="settings-gh-token" class="settings-label">
@@ -370,15 +457,18 @@
           <span class="settings-sub">Increases rate limit from 60 to 5,000 requests/hour</span>
         </label>
         <div class="neu-inset settings-input-wrap">
-          <input type="password" id="settings-gh-token" class="neu-input" placeholder="ghp_... or github_pat_..." autocomplete="off" />
+          <input type="password" id="settings-gh-token" class="neu-input" placeholder="ghp_... or github_pat_..."
+            autocomplete="off" />
         </div>
 
         <label for="settings-gemini-key" class="settings-label">
           <span>Google Gemini API Key (Optional)</span>
-          <span class="settings-sub">Used for live AI developer insights (free built-in fallback active by default)</span>
+          <span class="settings-sub">Used for live AI developer insights (free built-in fallback active by
+            default)</span>
         </label>
         <div class="neu-inset settings-input-wrap">
-          <input type="password" id="settings-gemini-key" class="neu-input" placeholder="AIzaSy..." autocomplete="off" />
+          <input type="password" id="settings-gemini-key" class="neu-input" placeholder="AIzaSy..."
+            autocomplete="off" />
         </div>
 
         <div class="settings-actions">
@@ -394,4 +484,5 @@
 
   <script src="script.js"></script>
 </body>
+
 </html>
