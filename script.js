@@ -1,10 +1,6 @@
 'use strict';
 
-/* ============================================================
-   CONFIGURATION
-   ============================================================ */
-const CONFIG = {
-  // Read token from localStorage if provided by user, else unauthenticated
+const CONFIG = {
   GITHUB_TOKEN: localStorage.getItem('gh_analyzer_token') || '',
   GITHUB_API: 'https://api.github.com',
 
@@ -17,9 +13,6 @@ const CONFIG = {
   REPOS_PER_PAGE: 15,    // Table pagination
 };
 
-/* ============================================================
-   LANGUAGE COLOURS
-   ============================================================ */
 const LANG_COLORS = {
   JavaScript: '#f7df1e', TypeScript: '#3178c6', Python: '#3572A5',
   Java: '#b07219', 'C++': '#f34b7d', C: '#555555', 'C#': '#178600',
@@ -35,9 +28,6 @@ function getLangColor(lang) {
   return LANG_COLORS[lang] || LANG_COLORS.Other;
 }
 
-/* ============================================================
-   HELPERS & UTILITIES
-   ============================================================ */
 function $(id) { return document.getElementById(id); }
 
 function showEl(el) { if (el) { el.hidden = false; } }
@@ -101,9 +91,6 @@ function relativeDate(d) {
   return `${years}y ago`;
 }
 
-/* ============================================================
-   STATE
-   ============================================================ */
 const state = {
   profile: null,
   repos: [],
@@ -117,9 +104,6 @@ const state = {
   insights: null,
 };
 
-/* ============================================================
-   CUSTOM ERROR
-   ============================================================ */
 class AppError extends Error {
   constructor(code, detail) {
     super(code);
@@ -128,9 +112,6 @@ class AppError extends Error {
   }
 }
 
-/* ============================================================
-   API CLIENT
-   ============================================================ */
 const ApiClient = {
   _headers() {
     const token = localStorage.getItem('gh_analyzer_token') || CONFIG.GITHUB_TOKEN;
@@ -173,11 +154,7 @@ const ApiClient = {
   },
 };
 
-/* ============================================================
-   DATA PROCESSOR
-   ============================================================ */
-const DataProcessor = {
-  // ─── Repositories ──────────────────────────────────────────
+const DataProcessor = {
   processRepos(repos) {
     if (!Array.isArray(repos)) return [];
     return repos.map(r => ({
@@ -194,9 +171,7 @@ const DataProcessor = {
       fork: !!r.fork,
       size: r.size || 0,
     }));
-  },
-
-  // ─── Languages ─────────────────────────────────────────────
+  },
   aggregateLanguages(langDataArray) {
     const agg = {};
     if (Array.isArray(langDataArray)) {
@@ -227,9 +202,7 @@ const DataProcessor = {
         repoCount: info.repoCount,
         pct: total > 0 ? (info.bytes / total) * 100 : 0,
       }));
-  },
-
-  // ─── Commits & Events ──────────────────────────────────────
+  },
   parseCommits(rawCommits) {
     if (!Array.isArray(rawCommits)) return [];
     const seen = new Set();
@@ -260,9 +233,7 @@ const DataProcessor = {
         };
       })
       .filter(Boolean);
-  },
-
-  // ─── Streaks ───────────────────────────────────────────────
+  },
   calculateStreaks(commits) {
     if (!Array.isArray(commits) || commits.length === 0) {
       return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
@@ -273,25 +244,19 @@ const DataProcessor = {
     }
 
     const todayStr = getUtcDateStr(new Date());
-    const yesterdayStr = getUtcDateStr(new Date(Date.now() - 86400000));
-
-    // Build day gaps
+    const yesterdayStr = getUtcDateStr(new Date(Date.now() - 86400000));
     const gaps = [];
     for (let i = 1; i < dateSets.length; i++) {
       const d1 = new Date(dateSets[i - 1] + 'T00:00:00Z');
       const d2 = new Date(dateSets[i] + 'T00:00:00Z');
       const gap = Math.round((d2 - d1) / 86400000);
       gaps.push(gap);
-    }
-
-    // Longest streak
+    }
     let longest = 1, cur = 1;
     for (const g of gaps) {
       cur = g === 1 ? cur + 1 : 1;
       if (cur > longest) longest = cur;
-    }
-
-    // Current streak (walk backwards)
+    }
     let current = 0;
     const lastDate = dateSets[dateSets.length - 1];
     if (lastDate === todayStr || lastDate === yesterdayStr) {
@@ -303,15 +268,11 @@ const DataProcessor = {
         if (diff === 1) current++;
         else break;
       }
-    }
-
-    // Longest inactive
+    }
     let longestInactive = 0;
     for (const g of gaps) {
       if (g - 1 > longestInactive) longestInactive = g - 1;
-    }
-
-    // Avg active days per week
+    }
     const firstDateObj = new Date(dateSets[0] + 'T00:00:00Z');
     const lastDateObj = new Date(dateSets[dateSets.length - 1] + 'T00:00:00Z');
     const totalWeeks = Math.max(1, (lastDateObj - firstDateObj) / (7 * 86400000));
@@ -324,9 +285,7 @@ const DataProcessor = {
       longestInactive: Math.round(longestInactive),
       avgPerWeek,
     };
-  },
-
-  // ─── Activity breakdown ────────────────────────────────────
+  },
   activityByDay(commits) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const counts = Array(7).fill(0);
@@ -366,15 +325,11 @@ const DataProcessor = {
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, count]) => ({ month, count }));
-  },
-
-  // ─── Activity Score ─────────────────────────────────────────
+  },
   calculateScore(data) {
     const { repos = [], commits = [], streaks = {}, langStats = [] } = data;
     const MAX = { consistency: 20, recentActivity: 20, repoActivity: 15, openSource: 15, streak: 15, langDiversity: 15 };
-    const factors = {};
-
-    // 1. Consistency
+    const factors = {};
     const firstCommit = commits.length > 0 ? commits[commits.length - 1].date : null;
     let consistencyScore = 0;
     if (firstCommit && streaks.totalActive) {
@@ -384,33 +339,23 @@ const DataProcessor = {
     } else if (repos.length > 0) {
       consistencyScore = Math.min(MAX.consistency, repos.length * 2);
     }
-    factors.consistency = { label: 'Consistency', pts: Math.min(MAX.consistency, consistencyScore), max: MAX.consistency };
-
-    // 2. Recent activity (last 90 days)
+    factors.consistency = { label: 'Consistency', pts: Math.min(MAX.consistency, consistencyScore), max: MAX.consistency };
     const cutoff90 = Date.now() - 90 * 86400000;
     const recentCommits = commits.filter(c => c.date && c.date.getTime() > cutoff90).length;
     const recentScore = Math.min(MAX.recentActivity, Math.round((recentCommits / 30) * MAX.recentActivity));
-    factors.recentActivity = { label: 'Recent Activity', pts: recentScore, max: MAX.recentActivity };
-
-    // 3. Repository activity
+    factors.recentActivity = { label: 'Recent Activity', pts: recentScore, max: MAX.recentActivity };
     const starsTotal = repos.reduce((s, r) => s + (r.stars || 0), 0);
     const forksTotal = repos.reduce((s, r) => s + (r.forks || 0), 0);
     const repoScore = Math.min(MAX.repoActivity,
       Math.round((Math.log10(starsTotal + forksTotal + 1) / 3.5) * MAX.repoActivity));
-    factors.repoActivity = { label: 'Repository Engagement', pts: repoScore, max: MAX.repoActivity };
-
-    // 4. Open source
+    factors.repoActivity = { label: 'Repository Engagement', pts: repoScore, max: MAX.repoActivity };
     const ownRepos = repos.filter(r => !r.fork);
     const osScore = Math.min(MAX.openSource,
       Math.round((Math.min(ownRepos.length, 20) / 20) * MAX.openSource));
-    factors.openSource = { label: 'Original Repositories', pts: osScore, max: MAX.openSource };
-
-    // 5. Streak
+    factors.openSource = { label: 'Original Repositories', pts: osScore, max: MAX.openSource };
     const streakScore = Math.min(MAX.streak,
       Math.round((Math.min(streaks.longest || 0, 30) / 30) * MAX.streak));
-    factors.streak = { label: 'Commit Streak', pts: streakScore, max: MAX.streak };
-
-    // 6. Language diversity
+    factors.streak = { label: 'Commit Streak', pts: streakScore, max: MAX.streak };
     const langCount = langStats.length;
     const langScore = Math.min(MAX.langDiversity,
       Math.round((Math.min(langCount, 6) / 6) * MAX.langDiversity));
@@ -418,18 +363,14 @@ const DataProcessor = {
 
     const total = Object.values(factors).reduce((s, f) => s + f.pts, 0);
     return { total: Math.min(100, Math.max(0, total)), factors };
-  },
-
-  // ─── Filter commits by period ────────────────────────────────
+  },
   filterByPeriod(commits, period) {
     if (period === 'all') return commits;
     const numDays = Number(period);
     if (isNaN(numDays) || numDays <= 0) return commits;
     const cutoff = Date.now() - numDays * 86400000;
     return commits.filter(c => c.date && c.date.getTime() >= cutoff);
-  },
-
-  // ─── Stats summary ──────────────────────────────────────────
+  },
   computeStats(profile, repos, commits) {
     const totalStars = repos.reduce((s, r) => s + (r.stars || 0), 0);
     const totalForks = repos.reduce((s, r) => s + (r.forks || 0), 0);
@@ -447,9 +388,6 @@ const DataProcessor = {
   },
 };
 
-/* ============================================================
-   INSIGHTS ENGINE (Gemini with Fallback)
-   ============================================================ */
 const InsightsEngine = {
   async analyze(analysisData) {
     const apiKey = localStorage.getItem('gh_analyzer_gemini_key') || CONFIG.GEMINI_API_KEY;
@@ -569,9 +507,6 @@ Return ONLY raw JSON. No markdown backticks.`;
   },
 };
 
-/* ============================================================
-   TOOLTIP
-   ============================================================ */
 let tooltipEl = null;
 function getTooltip() {
   if (!tooltipEl) tooltipEl = $('tooltip');
@@ -594,9 +529,6 @@ function hideTooltip() {
   if (tip) tip.classList.remove('visible');
 }
 
-/* ============================================================
-   PROGRESS STEPS & STATUS
-   ============================================================ */
 const STEPS = ['profile', 'repos', 'languages', 'activity', 'insights'];
 
 function setStep(step, done = false) {
@@ -614,9 +546,6 @@ function setStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-/* ============================================================
-   RENDER — Overview
-   ============================================================ */
 function renderProfile(profile) {
   const avatar = $('profile-avatar');
   if (avatar) {
@@ -625,9 +554,7 @@ function renderProfile(profile) {
   }
   $('profile-name').textContent = profile.name || profile.login || '';
   $('profile-username').textContent = profile.login || '';
-  $('profile-bio').textContent = profile.bio || '';
-
-  // Meta
+  $('profile-bio').textContent = profile.bio || '';
   const metas = [];
   if (profile.location) metas.push({ icon: '📍', text: profile.location });
   if (profile.company) metas.push({ icon: '🏢', text: profile.company });
@@ -642,9 +569,7 @@ function renderProfile(profile) {
     m.isLink
       ? `<span class="meta-item"><span>${m.icon}</span><a href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(m.text)}</a></span>`
       : `<span class="meta-item"><span>${m.icon}</span><span>${escapeHtml(m.text)}</span></span>`
-  ).join('');
-
-  // Stats in profile card
+  ).join('');
   const stats = [
     { value: profile.public_repos || 0, label: 'Repositories' },
     { value: profile.followers || 0, label: 'Followers' },
@@ -723,9 +648,6 @@ function renderStreakMini(streaks) {
   $('mini-longest-streak').textContent = streaks.longest || 0;
 }
 
-/* ============================================================
-   RENDER — Activity
-   ============================================================ */
 function renderActivity(commits, period) {
   const filtered = DataProcessor.filterByPeriod(commits, period);
   renderHeatmap(filtered, period);
@@ -783,9 +705,7 @@ function renderHeatmap(commits, period) {
     if (c && c.dateStr) {
       countMap[c.dateStr] = (countMap[c.dateStr] || 0) + 1;
     }
-  });
-
-  // Calculate timeframe in UTC
+  });
   const now = new Date();
   const endUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
@@ -851,9 +771,7 @@ function renderHeatmap(commits, period) {
     }
 
     grid.appendChild(weekEl);
-  }
-
-  // Legend
+  }
   const legend = $('heatmap-legend');
   if (legend) {
     legend.innerHTML = `
@@ -933,44 +851,31 @@ function renderMonthlyChart(monthly) {
   }).join('');
 }
 
-/* ============================================================
-   RENDER — Repositories
-   ============================================================ */
 function renderRepositories() {
-  let repos = [...state.repos];
-
-  // Filter by search query
+  let repos = [...state.repos];
   if (state.repoQuery) {
     const q = state.repoQuery.toLowerCase();
     repos = repos.filter(r =>
       (r.name && r.name.toLowerCase().includes(q)) ||
       (r.description && r.description.toLowerCase().includes(q))
     );
-  }
-
-  // Filter by language
+  }
   if (state.repoLang) {
     repos = repos.filter(r => r.language === state.repoLang);
-  }
-
-  // Sort
+  }
   switch (state.repoSort) {
     case 'stars': repos.sort((a, b) => (b.stars || 0) - (a.stars || 0)); break;
     case 'forks': repos.sort((a, b) => (b.forks || 0) - (a.forks || 0)); break;
     case 'updated': repos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); break;
     case 'name': repos.sort((a, b) => (a.name || '').localeCompare(b.name || '')); break;
-  }
-
-  // Pagination
+  }
   const total = repos.length;
   const totalPages = Math.max(1, Math.ceil(total / CONFIG.REPOS_PER_PAGE));
   if (state.repoPage > totalPages) state.repoPage = 1;
   if (state.repoPage < 1) state.repoPage = 1;
 
   const start = (state.repoPage - 1) * CONFIG.REPOS_PER_PAGE;
-  const page = repos.slice(start, start + CONFIG.REPOS_PER_PAGE);
-
-  // Table rows
+  const page = repos.slice(start, start + CONFIG.REPOS_PER_PAGE);
   const tbody = $('repo-tbody');
   if (tbody) {
     if (page.length === 0) {
@@ -1001,9 +906,7 @@ function renderRepositories() {
         </tr>`;
       }).join('');
     }
-  }
-
-  // Pagination controls
+  }
   const pag = $('repo-pagination');
   if (pag) {
     if (totalPages <= 1) {
@@ -1047,9 +950,7 @@ function renderRepoHighlights() {
     } else {
       highlightsEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">No repository data available.</p>';
     }
-  }
-
-  // Populate language filter
+  }
   const langs = [...new Set(state.repos.map(r => r.language).filter(Boolean))].sort();
   const sel = $('lang-filter');
   if (sel) {
@@ -1058,9 +959,6 @@ function renderRepoHighlights() {
   }
 }
 
-/* ============================================================
-   RENDER — Languages
-   ============================================================ */
 function renderLanguages(langStats) {
   const bars = $('lang-bars');
   const tbody = $('lang-tbody');
@@ -1073,12 +971,8 @@ function renderLanguages(langStats) {
     if (legend) legend.innerHTML = '';
     if (svg) svg.innerHTML = '';
     return;
-  }
-
-  // Donut chart
-  renderDonut(langStats.slice(0, 8));
-
-  // Bar chart
+  }
+  renderDonut(langStats.slice(0, 8));
   if (bars) {
     bars.innerHTML = langStats.slice(0, 10).map(l =>
       `<div class="lang-bar-row">
@@ -1093,9 +987,7 @@ function renderLanguages(langStats) {
         </div>
       </div>`
     ).join('');
-  }
-
-  // Table
+  }
   if (tbody) {
     tbody.innerHTML = langStats.map(l =>
       `<tr>
@@ -1151,9 +1043,7 @@ function renderDonut(langStats) {
       data-pct="${seg.pct.toFixed(1)}"
       style="cursor:pointer;transition:stroke-width 0.2s ease"
     />`
-  ).join('');
-
-  // Hover interactions
+  ).join('');
   svg.querySelectorAll('.donut-seg').forEach(path => {
     path.addEventListener('mouseenter', () => {
       path.style.strokeWidth = '28';
@@ -1169,9 +1059,7 @@ function renderDonut(langStats) {
       if (nameEl) nameEl.textContent = 'Total';
       if (pctEl) pctEl.textContent = '100%';
     });
-  });
-
-  // Legend
+  });
   const legend = $('donut-legend');
   if (legend) {
     legend.innerHTML = langStats.map(l =>
@@ -1184,9 +1072,6 @@ function renderDonut(langStats) {
   }
 }
 
-/* ============================================================
-   RENDER — Insights
-   ============================================================ */
 function renderInsights(insights) {
   const container = $('insights-grid');
   if (!container) return;
@@ -1215,9 +1100,6 @@ function renderInsights(insights) {
   }).join('');
 }
 
-/* ============================================================
-   ERROR HANDLING
-   ============================================================ */
 function showError(code, customMessage) {
   const messages = {
     not_found: 'GitHub profile not found. Please check the username and try again.',
@@ -1234,9 +1116,6 @@ function showError(code, customMessage) {
   showEl($('error-banner'));
 }
 
-/* ============================================================
-   NAVIGATION
-   ============================================================ */
 function showSection(name) {
   document.querySelectorAll('.content-section').forEach(s => { s.hidden = true; s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -1263,24 +1142,17 @@ function closeSidebar() {
   $('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
 }
 
-/* ============================================================
-   MAIN ANALYSIS FLOW
-   ============================================================ */
 async function analyzeProfile(rawUsername) {
   const username = rawUsername ? rawUsername.trim() : '';
-  if (!username) return;
-
-  // Reset state
+  if (!username) return;
   Object.assign(state, { profile: null, repos: [], languages: {}, commits: [], repoPage: 1 });
-  hideEl($('error-banner'));
-
-  // Switch to loading
+  hideEl($('error-banner'));
   hideEl($('landing'));
   showEl($('loading-screen'));
   hideEl($('dashboard'));
 
   try {
-    /* ── Step 1: Profile ── */
+
     setStep('profile');
     setStatus('Fetching profile info...');
     state.profile = await ApiClient.get(`/users/${encodeURIComponent(username)}`);
@@ -1288,7 +1160,6 @@ async function analyzeProfile(rawUsername) {
 
     const actualLogin = state.profile.login || username;
 
-    /* ── Step 2: Repositories ── */
     setStep('repos');
     setStatus('Loading repository portfolio...');
     const rawRepos = await ApiClient.getPages(
@@ -1298,10 +1169,8 @@ async function analyzeProfile(rawUsername) {
     state.repos = DataProcessor.processRepos(rawRepos);
     setStep('repos', true);
 
-    /* ── Step 3: Languages ── */
     setStep('languages');
-    setStatus('Aggregating languages & code stats...');
-    // Query top 10 non-fork repos by pushed date/stars for detailed bytes
+    setStatus('Aggregating languages & code stats...');
     const nonForkRepos = state.repos.filter(r => !r.fork);
     const langCandidates = (nonForkRepos.length > 0 ? nonForkRepos : state.repos).slice(0, 10);
 
@@ -1311,9 +1180,7 @@ async function analyzeProfile(rawUsername) {
         .catch(() => ({ repo: r.name, data: {} }))
     );
     const langResults = await Promise.all(langPromises);
-    state.languages = DataProcessor.aggregateLanguages(langResults);
-
-    // Fallback/enrichment with repo.language if detailed byte map is sparse
+    state.languages = DataProcessor.aggregateLanguages(langResults);
     state.repos.forEach(r => {
       if (r.language && !state.languages[r.language]) {
         state.languages[r.language] = {
@@ -1325,21 +1192,16 @@ async function analyzeProfile(rawUsername) {
     });
     setStep('languages', true);
 
-    /* ── Step 4: Commits & Events ── */
     setStep('activity');
     setStatus('Analyzing commit activity & streak metrics...');
     const topRepos = [...state.repos]
       .sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.updatedAt || 0) - (a.updatedAt || 0))
-      .slice(0, CONFIG.COMMIT_REPOS);
-
-    // Fetch commits from top repos
+      .slice(0, CONFIG.COMMIT_REPOS);
     const commitPromises = topRepos.map(r =>
       ApiClient.get(`/repos/${encodeURIComponent(r.fullName)}/commits?per_page=${CONFIG.COMMITS_PER_REPO}`)
         .then(data => Array.isArray(data) ? data.map(c => ({ ...c, _repo: r.name })) : [])
         .catch(() => [])
-    );
-
-    // Also fetch public user events to capture recent push events across all repos
+    );
     const eventsPromise = ApiClient.get(`/users/${encodeURIComponent(actualLogin)}/events/public?per_page=100`)
       .then(events => {
         if (!Array.isArray(events)) return [];
@@ -1374,7 +1236,6 @@ async function analyzeProfile(rawUsername) {
     state.commits = DataProcessor.parseCommits(allRawCommits);
     setStep('activity', true);
 
-    /* ── Step 5: Insights ── */
     setStep('insights');
     setStatus('Generating developer intelligence insights...');
     const langStats = DataProcessor.getLanguageStats(state.languages);
@@ -1408,7 +1269,6 @@ async function analyzeProfile(rawUsername) {
     state.insights = await InsightsEngine.analyze(analysisData);
     setStep('insights', true);
 
-    /* ── Render Everything ── */
     setStatus('Preparing dashboard presentation...');
     renderProfile(state.profile);
     renderStats(stats);
@@ -1420,7 +1280,6 @@ async function analyzeProfile(rawUsername) {
     renderLanguages(langStats);
     renderInsights(state.insights);
 
-    /* ── Show Dashboard ── */
     await new Promise(r => setTimeout(r, 400));
     hideEl($('loading-screen'));
     showEl($('dashboard'));
@@ -1434,13 +1293,8 @@ async function analyzeProfile(rawUsername) {
   }
 }
 
-/* ============================================================
-   INITIALIZATION
-   ============================================================ */
 function init() {
-  initNavigation();
-
-  // Period selector buttons
+  initNavigation();
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -1448,9 +1302,7 @@ function init() {
       state.period = btn.dataset.period === 'all' ? 'all' : Number(btn.dataset.period);
       renderActivity(state.commits, state.period);
     });
-  });
-
-  // Repo search & filters
+  });
   $('repo-search')?.addEventListener('input', e => {
     state.repoQuery = e.target.value.trim();
     state.repoPage = 1;
@@ -1465,9 +1317,7 @@ function init() {
     state.repoSort = e.target.value;
     state.repoPage = 1;
     renderRepositories();
-  });
-
-  // Repository table pagination event delegation
+  });
   $('repo-pagination')?.addEventListener('click', e => {
     const btn = e.target.closest('.page-btn');
     if (btn && btn.dataset.page) {
@@ -1478,9 +1328,7 @@ function init() {
         $('repo-table')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
-  });
-
-  // Reset to landing
+  });
   function resetToLanding() {
     hideEl($('dashboard'));
     hideEl($('loading-screen'));
@@ -1493,9 +1341,7 @@ function init() {
     }
   }
   $('new-search-btn')?.addEventListener('click', resetToLanding);
-  $('mobile-new-search')?.addEventListener('click', resetToLanding);
-
-  // Analyze button & input submit
+  $('mobile-new-search')?.addEventListener('click', resetToLanding);
   $('analyze-btn')?.addEventListener('click', () => {
     const username = $('username-input')?.value.trim();
     if (!username) {
@@ -1507,21 +1353,15 @@ function init() {
 
   $('username-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') $('analyze-btn')?.click();
-  });
-
-  // Example user chips
+  });
   document.querySelectorAll('.example-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const user = chip.dataset.user;
       if ($('username-input')) $('username-input').value = user;
       analyzeProfile(user);
     });
-  });
-
-  // Error banner close
-  $('error-close')?.addEventListener('click', () => hideEl($('error-banner')));
-
-  // Mobile sidebar toggle
+  });
+  $('error-close')?.addEventListener('click', () => hideEl($('error-banner')));
   $('sidebar-toggle')?.addEventListener('click', () => {
     const sidebar = $('sidebar');
     const overlay = $('sidebar-overlay');
@@ -1535,9 +1375,7 @@ function init() {
     $('sidebar-toggle')?.setAttribute('aria-expanded', String(!isOpen));
   });
 
-  $('sidebar-overlay')?.addEventListener('click', closeSidebar);
-
-  // Settings / Token configuration
+  $('sidebar-overlay')?.addEventListener('click', closeSidebar);
   const setupSettings = () => {
     const openBtns = [$('settings-btn'), $('landing-settings-btn'), $('mobile-settings-btn')].filter(Boolean);
     const modal = $('settings-modal');
@@ -1577,9 +1415,7 @@ function init() {
       });
     }
   };
-  setupSettings();
-
-  // Initial display setup
+  setupSettings();
   hideEl($('dashboard'));
   hideEl($('loading-screen'));
   hideEl($('error-banner'));
