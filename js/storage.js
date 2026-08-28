@@ -1,20 +1,4 @@
 export const Storage = {
-  // --- Keys ---
-  getToken() {
-    return localStorage.getItem('gh_analyzer_token') || '';
-  },
-  setToken(val) {
-    if (val) localStorage.setItem('gh_analyzer_token', val);
-    else localStorage.removeItem('gh_analyzer_token');
-  },
-
-  getGeminiKey() {
-    return localStorage.getItem('gh_analyzer_gemini_key') || '';
-  },
-  setGeminiKey(val) {
-    if (val) localStorage.setItem('gh_analyzer_gemini_key', val);
-    else localStorage.removeItem('gh_analyzer_gemini_key');
-  },
 
   // --- Theme ---
   getTheme() {

@@ -63,9 +63,9 @@
 
   // js/config.js
   var CONFIG = {
-    GITHUB_TOKEN: localStorage.getItem("gh_analyzer_token") || "",
+    GITHUB_TOKEN: window.ENV && window.ENV.GITHUB_TOKEN || "",
     GITHUB_API: "https://api.github.com",
-    GEMINI_API_KEY: localStorage.getItem("gh_analyzer_gemini_key") || "",
+    GEMINI_API_KEY: window.ENV && window.ENV.GEMINI_API_KEY || "",
     GEMINI_MODEL: "gemini-1.5-flash",
     MAX_REPOS: 100,
     COMMIT_REPOS: 10,
@@ -126,21 +126,6 @@
 
   // js/storage.js
   var Storage = {
-    // --- Keys ---
-    getToken() {
-      return localStorage.getItem("gh_analyzer_token") || "";
-    },
-    setToken(val) {
-      if (val) localStorage.setItem("gh_analyzer_token", val);
-      else localStorage.removeItem("gh_analyzer_token");
-    },
-    getGeminiKey() {
-      return localStorage.getItem("gh_analyzer_gemini_key") || "";
-    },
-    setGeminiKey(val) {
-      if (val) localStorage.setItem("gh_analyzer_gemini_key", val);
-      else localStorage.removeItem("gh_analyzer_gemini_key");
-    },
     // --- Theme ---
     getTheme() {
       return localStorage.getItem("gh_analyzer_theme") || "light";
@@ -273,7 +258,7 @@
   };
   var ApiClient = {
     _headers() {
-      const token = Storage.getToken() || CONFIG.GITHUB_TOKEN;
+      const token = CONFIG.GITHUB_TOKEN;
       const h = { Accept: "application/vnd.github+json" };
       if (token && token.trim()) {
         h["Authorization"] = `Bearer ${token.trim()}`;
@@ -315,7 +300,7 @@
   };
   var InsightsEngine = {
     async analyze(analysisData) {
-      const apiKey = Storage.getGeminiKey() || CONFIG.GEMINI_API_KEY;
+      const apiKey = CONFIG.GEMINI_API_KEY;
       if (!apiKey || !apiKey.trim() || apiKey.startsWith("AQ.")) {
         return this._fallbackInsights(analysisData);
       }
@@ -1475,41 +1460,6 @@ Return ONLY raw JSON. No markdown backticks.`;
       $("sidebar-toggle")?.setAttribute("aria-expanded", String(!isOpen));
     });
     $("sidebar-overlay")?.addEventListener("click", closeSidebar);
-    const setupSettings = () => {
-      const openBtns = [$("settings-btn"), $("landing-settings-btn"), $("mobile-settings-btn")].filter(Boolean);
-      const modal = $("settings-modal");
-      const closeBtn = $("settings-close-btn");
-      const saveBtn = $("settings-save-btn");
-      const tokenInput = $("settings-gh-token");
-      const geminiInput = $("settings-gemini-key");
-      openBtns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          if (tokenInput) tokenInput.value = Storage.getToken();
-          if (geminiInput) geminiInput.value = Storage.getGeminiKey();
-          showEl(modal);
-        });
-      });
-      if (closeBtn && modal) {
-        closeBtn.addEventListener("click", () => hideEl(modal));
-      }
-      if (modal) {
-        modal.addEventListener("click", (e) => {
-          if (e.target === modal) hideEl(modal);
-        });
-      }
-      if (saveBtn) {
-        saveBtn.addEventListener("click", () => {
-          if (tokenInput) {
-            Storage.setToken(tokenInput.value.trim());
-          }
-          if (geminiInput) {
-            Storage.setGeminiKey(geminiInput.value.trim());
-          }
-          hideEl(modal);
-        });
-      }
-    };
-    setupSettings();
     hideEl($("dashboard"));
     hideEl($("loading-screen"));
     hideEl($("error-banner"));

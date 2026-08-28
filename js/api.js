@@ -11,7 +11,7 @@ export class AppError extends Error {
 
 export const ApiClient = {
   _headers() {
-    const token = Storage.getToken() || CONFIG.GITHUB_TOKEN;
+    const token = CONFIG.GITHUB_TOKEN;
     const h = { Accept: 'application/vnd.github+json' };
     if (token && token.trim()) {
       h['Authorization'] = `Bearer ${token.trim()}`;
@@ -61,7 +61,7 @@ export const ApiClient = {
 
 export const InsightsEngine = {
   async analyze(analysisData) {
-    const apiKey = Storage.getGeminiKey() || CONFIG.GEMINI_API_KEY;
+    const apiKey = CONFIG.GEMINI_API_KEY;
     if (!apiKey || !apiKey.trim() || apiKey.startsWith('AQ.')) {
       return this._fallbackInsights(analysisData);
     }

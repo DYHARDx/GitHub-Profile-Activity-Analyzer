@@ -1,8 +1,8 @@
 export const CONFIG = {
-  GITHUB_TOKEN: localStorage.getItem('gh_analyzer_token') || '',
+  GITHUB_TOKEN: (window.ENV && window.ENV.GITHUB_TOKEN) || '',
   GITHUB_API: 'https://api.github.com',
 
-  GEMINI_API_KEY: localStorage.getItem('gh_analyzer_gemini_key') || '',
+  GEMINI_API_KEY: (window.ENV && window.ENV.GEMINI_API_KEY) || '',
   GEMINI_MODEL: 'gemini-1.5-flash',
 
   MAX_REPOS: 100,

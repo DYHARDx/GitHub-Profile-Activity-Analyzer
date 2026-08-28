@@ -334,42 +334,7 @@ function init() {
   });
 
   $('sidebar-overlay')?.addEventListener('click', closeSidebar);
-  const setupSettings = () => {
-    const openBtns = [$('settings-btn'), $('landing-settings-btn'), $('mobile-settings-btn')].filter(Boolean);
-    const modal = $('settings-modal');
-    const closeBtn = $('settings-close-btn');
-    const saveBtn = $('settings-save-btn');
-    const tokenInput = $('settings-gh-token');
-    const geminiInput = $('settings-gemini-key');
 
-    openBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (tokenInput) tokenInput.value = Storage.getToken();
-        if (geminiInput) geminiInput.value = Storage.getGeminiKey();
-        showEl(modal);
-      });
-    });
-    if (closeBtn && modal) {
-      closeBtn.addEventListener('click', () => hideEl(modal));
-    }
-    if (modal) {
-      modal.addEventListener('click', e => {
-        if (e.target === modal) hideEl(modal);
-      });
-    }
-    if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
-        if (tokenInput) {
-          Storage.setToken(tokenInput.value.trim());
-        }
-        if (geminiInput) {
-          Storage.setGeminiKey(geminiInput.value.trim());
-        }
-        hideEl(modal);
-      });
-    }
-  };
-  setupSettings();
   hideEl($('dashboard'));
   hideEl($('loading-screen'));
   hideEl($('error-banner'));
