@@ -1,32 +1,13 @@
-/**
- * GitHub Profile Activity Analyzer — script.js
- *
- * Architecture:
- *   API Layer  → api.js functions (all requests go through ApiClient)
- *   Data Layer → DataProcessor (computes all metrics from raw API data)
- *   UI Layer   → section renderers (render* functions)
- *   Insights   → InsightsEngine (sends computed metrics to Gemini)
- *
- * Security:
- *   API keys must NEVER be hardcoded here.
- *   For production: route requests through a backend proxy.
- *   The CONFIG object below is the injection point for backend URLs.
- */
 
 'use strict';
-
-/* ============================================================
-   CONFIG — swap these base URLs for your backend proxy in prod
-   ============================================================ */
 const CONFIG = {
-  // GitHub: direct public API for unauthenticated requests (60 req/h)
-  // Replace with '/api/github' when behind a proxy with a token
+
+  GITHUB_TOKEN: '',
+
   GITHUB_API: 'https://api.github.com',
 
-  // Gemini: In production, NEVER call Gemini from the frontend.
-  // Replace GEMINI_API_KEY with your key only for local dev,
-  // then move to backend (/api/analyze) before any deployment.
-  GEMINI_API_KEY: '', // <-- inject via backend; leave empty to skip insights
+
+  GEMINI_API_KEY: '',
   GEMINI_MODEL: 'gemini-1.5-flash',
 
   MAX_REPOS: 100,        // pages to fetch (up to 100 per page)
@@ -73,11 +54,17 @@ const state = {
    API CLIENT
    ============================================================ */
 const ApiClient = {
+  _headers() {
+    const h = { Accept: 'application/vnd.github+json' };
+    if (CONFIG.GITHUB_TOKEN) {
+      h['Authorization'] = `Bearer ${CONFIG.GITHUB_TOKEN}`;
+    }
+    return h;
+  },
+
   async get(path) {
     const url = path.startsWith('http') ? path : `${CONFIG.GITHUB_API}${path}`;
-    const resp = await fetch(url, {
-      headers: { Accept: 'application/vnd.github+json' },
-    });
+    const resp = await fetch(url, { headers: this._headers() });
     if (resp.status === 404) throw new AppError('not_found');
     if (resp.status === 403) throw new AppError('rate_limit');
     if (!resp.ok) throw new AppError('api_error', resp.status);
@@ -241,14 +228,14 @@ const DataProcessor = {
 
   activityByHour(commits) {
     const slots = [
-      { label: 'Morning',   emoji: '🌅', range: [6, 12],  count: 0 },
+      { label: 'Morning', emoji: '🌅', range: [6, 12], count: 0 },
       { label: 'Afternoon', emoji: '☀️', range: [12, 17], count: 0 },
-      { label: 'Evening',   emoji: '🌆', range: [17, 21], count: 0 },
-      { label: 'Night',     emoji: '🌙', range: [21, 30], count: 0 }, // 21-06
+      { label: 'Evening', emoji: '🌆', range: [17, 21], count: 0 },
+      { label: 'Night', emoji: '🌙', range: [21, 30], count: 0 }, // 21-06
     ];
     commits.forEach(c => {
       const h = c.hour;
-      if (h >= 6  && h < 12) slots[0].count++;
+      if (h >= 6 && h < 12) slots[0].count++;
       else if (h >= 12 && h < 17) slots[1].count++;
       else if (h >= 17 && h < 21) slots[2].count++;
       else slots[3].count++;
@@ -326,16 +313,16 @@ const DataProcessor = {
 
   // ─── Stats summary ──────────────────────────────────────────
   computeStats(profile, repos, commits) {
-    const totalStars  = repos.reduce((s, r) => s + r.stars, 0);
-    const totalForks  = repos.reduce((s, r) => s + r.forks, 0);
+    const totalStars = repos.reduce((s, r) => s + r.stars, 0);
+    const totalForks = repos.reduce((s, r) => s + r.forks, 0);
     const totalIssues = repos.reduce((s, r) => s + r.issues, 0);
     return {
-      totalRepos:   profile.public_repos,
+      totalRepos: profile.public_repos,
       totalStars,
       totalForks,
       totalCommits: commits.length,
-      followers:    profile.followers,
-      following:    profile.following,
+      followers: profile.followers,
+      following: profile.following,
       totalIssues,
       pullRequests: 'N/A', // requires search API
     };
@@ -413,13 +400,13 @@ Return only the JSON array. No markdown. No explanations.`;
       const clean = text.replace(/```json?/g, '').replace(/```/g, '').trim();
       const arr = JSON.parse(clean);
       if (Array.isArray(arr) && arr.length > 0) return arr;
-    } catch (_) {}
+    } catch (_) { }
     return this._fallbackInsights(fallbackData);
   },
 
   _fallbackInsights(d) {
     const { totalCommits, currentStreak, longestStreak, topLanguages,
-            totalRepos, totalStars, activeDays, recentCommits90 } = d;
+      totalRepos, totalStars, activeDays, recentCommits90 } = d;
 
     return [
       {
@@ -477,13 +464,13 @@ Return only the JSON array. No markdown. No explanations.`;
    ============================================================ */
 function $(id) { return document.getElementById(id); }
 
-function showEl(el)  { if (el) { el.hidden = false; } }
-function hideEl(el)  { if (el) { el.hidden = true; } }
+function showEl(el) { if (el) { el.hidden = false; } }
+function hideEl(el) { if (el) { el.hidden = true; } }
 
 function formatNumber(n) {
   if (n === 'N/A' || n === null || n === undefined) return 'N/A';
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-  if (n >= 1000)    return (n / 1000).toFixed(1) + 'k';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
   return String(n);
 }
 
@@ -494,14 +481,14 @@ function formatDate(d) {
 
 function relativeDate(d) {
   const diff = Date.now() - new Date(d).getTime();
-  const days  = Math.floor(diff / 86400000);
+  const days = Math.floor(diff / 86400000);
   const weeks = Math.floor(days / 7);
-  const months= Math.floor(days / 30);
+  const months = Math.floor(days / 30);
   const years = Math.floor(days / 365);
-  if (days === 0)   return 'today';
-  if (days === 1)   return 'yesterday';
-  if (days < 7)    return `${days}d ago`;
-  if (weeks < 4)   return `${weeks}w ago`;
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  if (weeks < 4) return `${weeks}w ago`;
   if (months < 12) return `${months}mo ago`;
   return `${years}y ago`;
 }
@@ -514,7 +501,7 @@ function showTooltip(html, x, y) {
   const tw = tooltip.offsetWidth;
   const th = tooltip.offsetHeight;
   tooltip.style.left = Math.min(x + 10, window.innerWidth - tw - 10) + 'px';
-  tooltip.style.top  = Math.max(y - th - 10, 10) + 'px';
+  tooltip.style.top = Math.max(y - th - 10, 10) + 'px';
 }
 function hideTooltip() { tooltip.classList.remove('visible'); }
 
@@ -551,8 +538,8 @@ function renderProfile(profile) {
   // Meta
   const metas = [];
   if (profile.location) metas.push({ icon: '📍', text: profile.location });
-  if (profile.company)  metas.push({ icon: '🏢', text: profile.company });
-  if (profile.blog)     metas.push({ icon: '🔗', text: profile.blog });
+  if (profile.company) metas.push({ icon: '🏢', text: profile.company });
+  if (profile.blog) metas.push({ icon: '🔗', text: profile.blog });
   const joined = new Date(profile.created_at).getFullYear();
   metas.push({ icon: '📅', text: `Joined ${joined}` });
 
@@ -563,8 +550,8 @@ function renderProfile(profile) {
   // Stats
   const stats = [
     { value: profile.public_repos, label: 'Repositories' },
-    { value: profile.followers,    label: 'Followers' },
-    { value: profile.following,    label: 'Following' },
+    { value: profile.followers, label: 'Followers' },
+    { value: profile.following, label: 'Following' },
   ];
   $('profile-stats').innerHTML = stats.map(s =>
     `<div class="profile-stat-item">
@@ -579,13 +566,13 @@ function renderProfile(profile) {
 
 function renderStats(stats) {
   const items = [
-    { label: 'Repositories',  value: stats.totalRepos,   icon: '📁', color: '#5b6af0' },
-    { label: 'Total Stars',   value: stats.totalStars,   icon: '⭐', color: '#f79824' },
-    { label: 'Total Forks',   value: stats.totalForks,   icon: '🍴', color: '#38c97a' },
-    { label: 'Commits',       value: stats.totalCommits, icon: '📦', color: '#9f7aea' },
-    { label: 'Followers',     value: stats.followers,    icon: '👥', color: '#38b2ac' },
-    { label: 'Following',     value: stats.following,    icon: '➡️', color: '#ed64a6' },
-    { label: 'Open Issues',   value: stats.totalIssues,  icon: '🐛', color: '#e85b5b' },
+    { label: 'Repositories', value: stats.totalRepos, icon: '📁', color: '#5b6af0' },
+    { label: 'Total Stars', value: stats.totalStars, icon: '⭐', color: '#f79824' },
+    { label: 'Total Forks', value: stats.totalForks, icon: '🍴', color: '#38c97a' },
+    { label: 'Commits', value: stats.totalCommits, icon: '📦', color: '#9f7aea' },
+    { label: 'Followers', value: stats.followers, icon: '👥', color: '#38b2ac' },
+    { label: 'Following', value: stats.following, icon: '➡️', color: '#ed64a6' },
+    { label: 'Open Issues', value: stats.totalIssues, icon: '🐛', color: '#e85b5b' },
     { label: 'Pull Requests', value: stats.pullRequests, icon: '🔀', color: '#f79824' },
   ];
 
@@ -653,19 +640,23 @@ function renderActivity(commits, period) {
 
 function renderActivitySummary(filtered, allCommits) {
   const streaks = DataProcessor.calculateStreaks(filtered);
-  const byDay   = DataProcessor.activityByDay(filtered);
+  const byDay = DataProcessor.activityByDay(filtered);
   const mostActiveDay = [...byDay].sort((a, b) => b.count - a.count)[0];
   const monthly = DataProcessor.monthlyCommits(filtered);
   const mostActiveMonth = [...monthly].sort((a, b) => b.count - a.count)[0];
 
   const items = [
     { label: 'Total Commits', value: filtered.length, sub: 'in period' },
-    { label: 'Active Days',   value: streaks.totalActive, sub: 'unique days' },
-    { label: 'Daily Average', value: filtered.length > 0 && streaks.totalActive > 0
-        ? (filtered.length / streaks.totalActive).toFixed(1) : '0', sub: 'commits/day' },
-    { label: 'Most Active',   value: mostActiveDay?.name.slice(0, 3) || 'N/A', sub: mostActiveDay ? `${mostActiveDay.count} commits` : '' },
-    { label: 'Best Month',    value: mostActiveMonth ? mostActiveMonth.month.slice(5) : 'N/A',
-      sub: mostActiveMonth ? `${mostActiveMonth.count} commits` : '' },
+    { label: 'Active Days', value: streaks.totalActive, sub: 'unique days' },
+    {
+      label: 'Daily Average', value: filtered.length > 0 && streaks.totalActive > 0
+        ? (filtered.length / streaks.totalActive).toFixed(1) : '0', sub: 'commits/day'
+    },
+    { label: 'Most Active', value: mostActiveDay?.name.slice(0, 3) || 'N/A', sub: mostActiveDay ? `${mostActiveDay.count} commits` : '' },
+    {
+      label: 'Best Month', value: mostActiveMonth ? mostActiveMonth.month.slice(5) : 'N/A',
+      sub: mostActiveMonth ? `${mostActiveMonth.count} commits` : ''
+    },
   ];
 
   $('activity-summary').innerHTML = items.map(i =>
@@ -708,7 +699,7 @@ function renderHeatmap(commits, period) {
 
     for (let d = 0; d < 7; d++) {
       const dateStr = cursor.toISOString().slice(0, 10);
-      const count   = countMap[dateStr] || 0;
+      const count = countMap[dateStr] || 0;
       const inRange = cursor >= startDate && cursor <= endDate;
 
       const cell = document.createElement('div');
@@ -716,22 +707,22 @@ function renderHeatmap(commits, period) {
 
       if (inRange && count > 0) {
         const level = count >= maxCount * 0.75 ? 4
-                    : count >= maxCount * 0.5  ? 3
-                    : count >= maxCount * 0.25 ? 2 : 1;
+          : count >= maxCount * 0.5 ? 3
+            : count >= maxCount * 0.25 ? 2 : 1;
         cell.dataset.level = level;
       }
 
       if (inRange) {
         cell.addEventListener('mouseenter', e => {
           const repos = commits.filter(c => c.dateStr === dateStr)
-                               .map(c => c.repo)
-                               .filter(Boolean);
+            .map(c => c.repo)
+            .filter(Boolean);
           const uniqueRepos = [...new Set(repos)];
           showTooltip(
             `<strong>${formatDate(dateStr)}</strong><br>
              ${count} commit${count !== 1 ? 's' : ''}${uniqueRepos.length > 0
-               ? '<br>' + uniqueRepos.slice(0, 3).join('<br>')
-               : ''}`,
+              ? '<br>' + uniqueRepos.slice(0, 3).join('<br>')
+              : ''}`,
             e.clientX, e.clientY
           );
         });
@@ -739,7 +730,7 @@ function renderHeatmap(commits, period) {
         cell.addEventListener('mousemove', e => {
           const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
           tooltip.style.left = Math.min(e.clientX + 10, window.innerWidth - tw - 10) + 'px';
-          tooltip.style.top  = Math.max(e.clientY - th - 10, 10) + 'px';
+          tooltip.style.top = Math.max(e.clientY - th - 10, 10) + 'px';
         });
       }
 
@@ -762,14 +753,14 @@ function renderHeatmap(commits, period) {
 }
 
 function renderStreaks(streaks) {
-  $('current-streak').textContent  = streaks.current;
-  $('longest-streak').textContent  = streaks.longest;
+  $('current-streak').textContent = streaks.current;
+  $('longest-streak').textContent = streaks.longest;
   $('total-active-days').textContent = streaks.totalActive;
-  $('avg-active-week').textContent  = streaks.avgPerWeek;
+  $('avg-active-week').textContent = streaks.avgPerWeek;
   $('longest-inactive').textContent = streaks.longestInactive;
 
   $('mini-current-streak').textContent = streaks.current;
-  $('mini-longest-streak').textContent  = streaks.longest;
+  $('mini-longest-streak').textContent = streaks.longest;
 }
 
 function renderDayChart(dayData) {
@@ -844,10 +835,10 @@ function renderRepositories() {
 
   // Sort
   switch (state.repoSort) {
-    case 'stars':   repos.sort((a, b) => b.stars - a.stars); break;
-    case 'forks':   repos.sort((a, b) => b.forks - a.forks); break;
+    case 'stars': repos.sort((a, b) => b.stars - a.stars); break;
+    case 'forks': repos.sort((a, b) => b.forks - a.forks); break;
     case 'updated': repos.sort((a, b) => b.updatedAt - a.updatedAt); break;
-    case 'name':    repos.sort((a, b) => a.name.localeCompare(b.name)); break;
+    case 'name': repos.sort((a, b) => a.name.localeCompare(b.name)); break;
   }
 
   // Pagination
@@ -855,7 +846,7 @@ function renderRepositories() {
   const totalPages = Math.max(1, Math.ceil(total / CONFIG.REPOS_PER_PAGE));
   if (state.repoPage > totalPages) state.repoPage = 1;
   const start = (state.repoPage - 1) * CONFIG.REPOS_PER_PAGE;
-  const page  = repos.slice(start, start + CONFIG.REPOS_PER_PAGE);
+  const page = repos.slice(start, start + CONFIG.REPOS_PER_PAGE);
 
   // Table rows
   const tbody = $('repo-tbody');
@@ -904,7 +895,7 @@ function renderRepositories() {
   pag.innerHTML = html;
 }
 
-window.goToPage = function(p) {
+window.goToPage = function (p) {
   state.repoPage = p;
   renderRepositories();
 };
@@ -912,15 +903,15 @@ window.goToPage = function(p) {
 function renderRepoHighlights() {
   const sorted = [...state.repos];
   const mostStarred = [...sorted].sort((a, b) => b.stars - a.stars)[0];
-  const mostActive  = [...sorted].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-  const mostForked  = [...sorted].sort((a, b) => b.forks - a.forks)[0];
+  const mostActive = [...sorted].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  const mostForked = [...sorted].sort((a, b) => b.forks - a.forks)[0];
 
   if (!mostStarred) return;
 
   $('repo-highlights').innerHTML = [
     { badge: 'Most Starred', repo: mostStarred, meta: `${mostStarred.stars} stars` },
-    { badge: 'Most Recent',  repo: mostActive,  meta: `Updated ${relativeDate(mostActive.updatedAt)}` },
-    { badge: 'Most Forked',  repo: mostForked,  meta: `${mostForked.forks} forks` },
+    { badge: 'Most Recent', repo: mostActive, meta: `Updated ${relativeDate(mostActive.updatedAt)}` },
+    { badge: 'Most Forked', repo: mostForked, meta: `${mostForked.forks} forks` },
   ].map(h =>
     `<div class="repo-highlight-card">
       <span class="rh-badge">${h.badge}</span>
@@ -1019,12 +1010,12 @@ function renderDonut(langStats) {
     path.addEventListener('mouseenter', () => {
       path.style.strokeWidth = '28';
       $('donut-lang-name').textContent = path.dataset.lang;
-      $('donut-lang-pct').textContent  = path.dataset.pct + '%';
+      $('donut-lang-pct').textContent = path.dataset.pct + '%';
     });
     path.addEventListener('mouseleave', () => {
       path.style.strokeWidth = '22';
       $('donut-lang-name').textContent = 'Total';
-      $('donut-lang-pct').textContent  = '100%';
+      $('donut-lang-pct').textContent = '100%';
     });
   });
 
@@ -1044,11 +1035,11 @@ function renderDonut(langStats) {
 function renderInsights(insights) {
   const ICONS = {
     consistency: { emoji: '📊', color: '#5b6af0' },
-    momentum:    { emoji: '🚀', color: '#38c97a' },
-    tech_focus:  { emoji: '💻', color: '#9f7aea' },
+    momentum: { emoji: '🚀', color: '#38c97a' },
+    tech_focus: { emoji: '💻', color: '#9f7aea' },
     repo_health: { emoji: '🏗️', color: '#38b2ac' },
     open_source: { emoji: '🌐', color: '#f79824' },
-    pattern:     { emoji: '🔄', color: '#ed64a6' },
+    pattern: { emoji: '🔄', color: '#ed64a6' },
   };
 
   $('insights-grid').innerHTML = insights.map((ins, i) => {
@@ -1073,8 +1064,8 @@ function showError(code) {
   const messages = {
     not_found: 'GitHub profile not found. Please check the username and try again.',
     rate_limit: 'GitHub API rate limit reached. Please try again in a few minutes.',
-    api_error:  'Could not reach the GitHub API. Please try again later.',
-    default:    'An unexpected error occurred. Please try again.',
+    api_error: 'Could not reach the GitHub API. Please try again later.',
+    default: 'An unexpected error occurred. Please try again.',
   };
   $('error-message').textContent = messages[code] || messages.default;
   showEl($('error-banner'));
@@ -1144,8 +1135,8 @@ async function analyzeProfile(username) {
       .filter(r => !r.fork)
       .slice(0, 30)
       .map(r => ApiClient.get(`/repos/${username}/${r.name}/languages`)
-                         .then(data => ({ repo: r.name, data }))
-                         .catch(() => ({ repo: r.name, data: {} })));
+        .then(data => ({ repo: r.name, data }))
+        .catch(() => ({ repo: r.name, data: {} })));
     const langResults = await Promise.all(langPromises);
     state.languages = DataProcessor.aggregateLanguages(langResults);
     setStep('languages', true);
@@ -1161,7 +1152,7 @@ async function analyzeProfile(username) {
       ApiClient.get(
         `/repos/${username}/${r.name}/commits?author=${username}&per_page=${CONFIG.COMMITS_PER_REPO}`
       ).then(data => data.map(c => ({ ...c, _repo: r.name })))
-       .catch(() => [])
+        .catch(() => [])
     );
     const rawCommitsArrays = await Promise.all(commitPromises);
     const rawCommits = rawCommitsArrays.flat();
@@ -1171,25 +1162,25 @@ async function analyzeProfile(username) {
     /* ── Step 5: Insights ── */
     setStep('insights');
     setStatus('Generating insights...');
-    const langStats   = DataProcessor.getLanguageStats(state.languages);
-    const stats       = DataProcessor.computeStats(state.profile, state.repos, state.commits);
-    const streaks     = DataProcessor.calculateStreaks(state.commits);
-    const scoreData   = DataProcessor.calculateScore({ repos: state.repos, commits: state.commits, streaks, langStats, profile: state.profile });
+    const langStats = DataProcessor.getLanguageStats(state.languages);
+    const stats = DataProcessor.computeStats(state.profile, state.repos, state.commits);
+    const streaks = DataProcessor.calculateStreaks(state.commits);
+    const scoreData = DataProcessor.calculateScore({ repos: state.repos, commits: state.commits, streaks, langStats, profile: state.profile });
 
-    const cutoff90    = Date.now() - 90 * 86400000;
+    const cutoff90 = Date.now() - 90 * 86400000;
     const recentCommits90 = state.commits.filter(c => c.date > cutoff90).length;
 
     const analysisData = {
-      totalRepos:    stats.totalRepos,
-      totalStars:    stats.totalStars,
-      totalForks:    stats.totalForks,
-      totalCommits:  state.commits.length,
+      totalRepos: stats.totalRepos,
+      totalStars: stats.totalStars,
+      totalForks: stats.totalForks,
+      totalCommits: state.commits.length,
       currentStreak: streaks.current,
       longestStreak: streaks.longest,
-      activeDays:    streaks.totalActive,
-      avgPerWeek:    streaks.avgPerWeek,
+      activeDays: streaks.totalActive,
+      avgPerWeek: streaks.avgPerWeek,
       recentCommits90,
-      topLanguages:  langStats.slice(0, 5),
+      topLanguages: langStats.slice(0, 5),
       activityScore: scoreData.total,
     };
 
@@ -1293,9 +1284,9 @@ function init() {
 
   // Mobile sidebar
   $('sidebar-toggle')?.addEventListener('click', () => {
-    const sidebar  = $('sidebar');
-    const overlay  = $('sidebar-overlay');
-    const isOpen   = sidebar.classList.contains('open');
+    const sidebar = $('sidebar');
+    const overlay = $('sidebar-overlay');
+    const isOpen = sidebar.classList.contains('open');
     sidebar.classList.toggle('open', !isOpen);
     overlay.classList.toggle('open', !isOpen);
     $('sidebar-toggle').setAttribute('aria-expanded', !isOpen);
