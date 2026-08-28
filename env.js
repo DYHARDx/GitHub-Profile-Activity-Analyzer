@@ -8,5 +8,5 @@ const p5 = "9i4ON5Gf";
 window.ENV = {
   GITHUB_TOKEN: p1 + p2 + p3 + p4 + p5,
 
-  GEMINI_API_KEY: "AQ.Ab8RN6JlO6pqnIdAviaXgkAJIeLPfeUT5diO3C9HHj6zPqRgaA"
+  GEMINI_API_KEY: "YOUR_GEMINI_API_KEY_HERE"
 };

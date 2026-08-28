@@ -91,7 +91,7 @@ export const InsightsEngine = {
 
   _buildPrompt(d) {
     return `You are a GitHub developer activity analyzer.
-Analyze ONLY the measurable GitHub metrics below. Return a valid JSON array of 6 insight objects.
+Analyze ONLY the measurable GitHub metrics below. Return a valid JSON array of 7 insight objects.
 
 Metrics:
 ${JSON.stringify(d, null, 2)}
@@ -99,9 +99,9 @@ ${JSON.stringify(d, null, 2)}
 Required Schema:
 [
   {
-    "id": "consistency|momentum|tech_focus|repo_health|open_source|pattern",
+    "id": "consistency|momentum|tech_focus|repo_health|open_source|pattern|career_advice",
     "title": "Short Title",
-    "body": "1-2 sentence evidence-based factual summary.",
+    "body": "1-2 sentence evidence-based factual summary. For career_advice, provide 1 actionable career tip based on their tech stack.",
     "chips": ["Metric 1", "Metric 2"]
   }
 ]
@@ -173,6 +173,14 @@ Return ONLY raw JSON. No markdown backticks.`;
           ? `Activity indicates ${currentStreak > 5 ? 'a daily active' : activeDays > 20 ? 'a regular weekly' : 'a milestone-based'} workflow across the analyzed repository portfolio.`
           : 'Activity follows episodic releases and project updates.',
         chips: [`${topLanguages ? topLanguages.length : 0} languages`, `${totalRepos} repos`],
+      },
+      {
+        id: 'career_advice',
+        title: 'Career & Growth',
+        body: topLanguages && topLanguages.length > 0
+          ? `Consider contributing to major open-source projects in ${topLangName} to expand your portfolio. Exploring related frameworks can also boost your profile's visibility.`
+          : 'Start building a consistent contribution history by pushing small, regular updates to public repositories.',
+        chips: ['Growth Tip'],
       },
     ];
   }

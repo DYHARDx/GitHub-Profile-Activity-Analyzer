@@ -1818,3 +1818,199 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+/* --- Chat UI --- */
+.chat-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  cursor: pointer;
+  box-shadow: var(--neu-shadow-raised-lg);
+  transition: transform var(--transition);
+}
+.chat-fab:hover {
+  transform: translateY(-4px) scale(1.05);
+}
+.chat-fab.hidden {
+  display: none;
+}
+
+.chat-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  height: 500px;
+  max-height: calc(100vh - 48px);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--neu-shadow-raised-lg);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.chat-panel.open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+.chat-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--shadow-dark);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chat-header-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+.chat-message.user {
+  align-self: flex-end;
+}
+.chat-message.bot {
+  align-self: flex-start;
+}
+
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.chat-message.user .chat-bubble {
+  background: var(--accent);
+  color: white;
+  border-bottom-right-radius: 4px;
+  box-shadow: none;
+}
+.chat-message.bot .chat-bubble {
+  border-bottom-left-radius: 4px;
+}
+
+.chat-input-area {
+  padding: 16px;
+  border-top: 1px solid var(--shadow-dark);
+  display: flex;
+  gap: 8px;
+}
+.chat-input-area input {
+  flex: 1;
+}
+
+.chat-typing {
+  font-weight: bold;
+  color: var(--accent);
+}
+.chat-typing span {
+  animation: typing 1.4s infinite both;
+}
+.chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+/* --- Resume Generator Styles --- */
+#resume-container {
+  display: none;
+}
+
+.resume-paper {
+  background: white;
+  color: black;
+  padding: 40px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.6;
+}
+.resume-header h1 {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+.contact-info span {
+  margin-right: 15px;
+  color: #555;
+  font-size: 14px;
+}
+.resume-section {
+  margin-top: 24px;
+}
+.resume-section h2 {
+  font-size: 20px;
+  border-bottom: 2px solid #333;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+}
+.resume-project {
+  margin-bottom: 16px;
+}
+.project-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.project-title-row h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.project-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #resume-container, #resume-container * {
+    visibility: visible;
+  }
+  #resume-container {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  /* Ensure background colors are printed if needed */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

@@ -4,6 +4,9 @@ import { state } from './state.js';
 import { Storage } from './storage.js';
 import { ThemeManager } from './theme.js';
 import { ExportManager } from './export.js';
+import { ChatEngine } from './chat.js';
+import { ResumeManager } from './resume.js';
+import { BattlesManager } from './battles.js';
 import { ApiClient, InsightsEngine } from './api.js';
 import { DataProcessor } from './data.js';
 import {
@@ -221,6 +224,8 @@ async function analyzeProfile(rawUsername) {
     renderLanguages(langStats);
     renderInsights(state.insights);
 
+    ChatEngine.setContext({ ...analysisData, profile: state.profile });
+
     await new Promise(r => setTimeout(r, 400));
     hideEl($('loading-screen'));
     showEl($('dashboard'));
@@ -235,8 +240,14 @@ async function analyzeProfile(rawUsername) {
 }
 
 function init() {
+  btn-roast?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.'); });
+  btn-career-pred?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.'); });
+
+  btn-resume?.addEventListener('click', () => { ResumeManager.generate(); });
   ThemeManager.init();
   ExportManager.init();
+  ChatEngine.init();
+    BattlesManager.init();
   initNavigation();
   updateRecentSearchesUI();
 
@@ -340,4 +351,18 @@ function init() {
   hideEl($('error-banner'));
 }
 
+btn-roast?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.'); });
+  btn-career-pred?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.'); });
+
+  btn-resume?.addEventListener('click', () => { ResumeManager.generate(); });
+
 document.addEventListener('DOMContentLoaded', init);
+
+
+
+
+
+
+
+
+
