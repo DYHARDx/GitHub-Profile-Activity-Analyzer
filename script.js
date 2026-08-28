@@ -1,10 +1,9 @@
-
 'use strict';
 const CONFIG = {
-  GITHUB_TOKEN: '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',
+  GITHUB_TOKEN: '',
   GITHUB_API: 'https://api.github.com',
 
-  GEMINI_API_KEY: 'AQ.Ab8RN6JlO6pqnIdAviaXgkAJIeLPfeUT5diO3C9HHj6zPqRgaA',
+  GEMINI_API_KEY: '',
   GEMINI_MODEL: 'gemini-1.5-flash',
 
   MAX_REPOS: 100,        // pages to fetch (up to 100 per page)
