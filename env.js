@@ -4,10 +4,10 @@ const p2 = "AUtodYsP";
 const p3 = "uv4T8BPg";
 const p4 = "iZzSpDww";
 const p5 = "9i4ON5Gf";
-const g1 = "AQ.Ab8RN6Kd0AO";
-const g2 = "uo9-QSzc5eJ2";
-const g3 = "vEHj835mwTIH";
-const g4 = "QoQG65Nr7O9_OqA";
+const g1 = "AQ.Ab8RN6Lnz";
+const g2 = "QqAzMQELEsPD1";
+const g3 = "dbbuti7zLXeTA";
+const g4 = "gr7jDn37JO0y-rA";
 
 
 

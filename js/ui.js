@@ -600,3 +600,18 @@ export function renderInsights(insights) {
     </div>`;
   }).join('');
 }
+
+export function renderTechStack(techStack) {
+  const container = $('tech-stack-container');
+  const chips = $('tech-stack-chips');
+  if (!container || !chips) return;
+
+  if (techStack && techStack.length > 0) {
+    chips.innerHTML = techStack.map(tech => 
+      `<span style="background: var(--accent-bg); color: var(--accent); padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid rgba(91,106,240,0.2);">${escapeHtml(tech)}</span>`
+    ).join('');
+    container.style.display = 'block';
+  } else {
+    container.style.display = 'none';
+  }
+}

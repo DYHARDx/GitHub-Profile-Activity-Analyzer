@@ -9,4 +9,5 @@ export const state = {
   repoSort: 'stars',
   period: 'all',
   insights: null,
+  techStack: [],
 };

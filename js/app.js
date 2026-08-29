@@ -3,15 +3,15 @@ import { CONFIG } from './config.js';
 import { state } from './state.js';
 import { Storage } from './storage.js';
 import { ThemeManager } from './theme.js';
-import { ExportManager } from './export.js';
+
 import { ChatEngine } from './chat.js';
 import { ResumeManager } from './resume.js';
-
+import { TradingCardManager } from './trading-card.js';
 import { ApiClient, InsightsEngine } from './api.js';
 import { DataProcessor } from './data.js';
 import {
   setStep, setStatus, renderProfile, renderStats, renderScore, renderStreakMini,
-  renderActivity, renderRepoHighlights, renderRepositories, renderLanguages, renderInsights
+  renderActivity, renderRepoHighlights, renderRepositories, renderLanguages, renderInsights, renderTechStack
 } from './ui.js';
 
 function showError(code, customMessage) {
@@ -219,6 +219,68 @@ async function analyzeProfile(rawUsername) {
     state.languages = langMap;
     setStep('languages', true);
 
+    setStatus('Detecting tech stack...');
+    const topReposForStack = state.repos.filter(r => !r.fork).sort((a, b) => b.stars - a.stars || b.updatedAt - a.updatedAt).slice(0, 10);
+    state.techStack = [];
+    if (topReposForStack.length > 0) {
+      let stackQuery = `query($login: String!) { user(login: $login) { `;
+      topReposForStack.forEach((r, i) => {
+        const safeName = `repo${i}`;
+        stackQuery += `
+          ${safeName}: repository(name: "${r.name}") {
+            pkg: object(expression: "HEAD:package.json") { ... on Blob { text } }
+            req: object(expression: "HEAD:requirements.txt") { ... on Blob { text } }
+            gomod: object(expression: "HEAD:go.mod") { ... on Blob { text } }
+            pom: object(expression: "HEAD:pom.xml") { ... on Blob { text } }
+            composer: object(expression: "HEAD:composer.json") { ... on Blob { text } }
+          }
+        `;
+      });
+      stackQuery += ` } }`;
+      try {
+        const stackData = await ApiClient.graphql(stackQuery, { login: username });
+        const techSet = new Set();
+        if (stackData && stackData.user) {
+          Object.values(stackData.user).forEach(repoData => {
+            if (!repoData) return;
+            if (repoData.pkg?.text) {
+              const text = repoData.pkg.text;
+              if (text.includes('"react"')) techSet.add('React');
+              if (text.includes('"next"')) techSet.add('Next.js');
+              if (text.includes('"vue"')) techSet.add('Vue');
+              if (text.includes('"svelte"')) techSet.add('Svelte');
+              if (text.includes('"express"')) techSet.add('Express');
+              if (text.includes('"tailwindcss"')) techSet.add('Tailwind CSS');
+              if (text.includes('"@angular/core"')) techSet.add('Angular');
+              techSet.add('Node.js');
+            }
+            if (repoData.req?.text) {
+              const text = repoData.req.text.toLowerCase();
+              if (text.includes('django')) techSet.add('Django');
+              if (text.includes('flask')) techSet.add('Flask');
+              if (text.includes('fastapi')) techSet.add('FastAPI');
+              if (text.includes('pandas') || text.includes('numpy')) techSet.add('Data Science');
+            }
+            if (repoData.gomod?.text) {
+              techSet.add('Go Modules');
+            }
+            if (repoData.pom?.text) {
+              const text = repoData.pom.text.toLowerCase();
+              if (text.includes('spring-boot')) techSet.add('Spring Boot');
+            }
+            if (repoData.composer?.text) {
+              const text = repoData.composer.text.toLowerCase();
+              if (text.includes('laravel/framework')) techSet.add('Laravel');
+              if (text.includes('symfony/symfony')) techSet.add('Symfony');
+            }
+          });
+        }
+        state.techStack = Array.from(techSet);
+      } catch (err) {
+        console.warn('Failed to fetch tech stack:', err);
+      }
+    }
+
     setStep('activity');
     setStatus('Analyzing commit activity & streak metrics...');
     
@@ -335,6 +397,7 @@ async function analyzeProfile(rawUsername) {
     renderRepoHighlights();
     renderRepositories();
     renderLanguages(langStats);
+    renderTechStack(state.techStack);
     renderInsights(state.insights);
 
     ChatEngine.setContext({ ...analysisData, profile: state.profile });
@@ -358,9 +421,9 @@ function init() {
 
   $('btn-resume')?.addEventListener('click', () => { ResumeManager.generate(); });
   ThemeManager.init();
-  ExportManager.init();
-  ChatEngine.init();
 
+  ChatEngine.init();
+  TradingCardManager.init();
   initNavigation();
   updateRecentSearchesUI();
 

@@ -121,7 +121,8 @@
     repoLang: "",
     repoSort: "stars",
     period: "all",
-    insights: null
+    insights: null,
+    techStack: []
   };
 
   // js/storage.js
@@ -202,60 +203,6 @@
         } else {
           toggleBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
         }
-      }
-    }
-  };
-
-  // js/export.js
-  var ExportManager = {
-    init() {
-      const btn = document.getElementById("export-btn");
-      if (btn) {
-        btn.addEventListener("click", () => {
-          this.exportDashboard();
-        });
-      }
-    },
-    async exportDashboard() {
-      if (typeof html2canvas === "undefined") {
-        alert("Export library is still loading or failed to load. Please try again in a moment.");
-        return;
-      }
-      if (!state.profile) {
-        alert("Please analyze a profile first!");
-        return;
-      }
-      const btn = document.getElementById("export-btn");
-      const originalText = btn.innerHTML;
-      btn.innerHTML = `<span class="btn-text">Exporting...</span>`;
-      btn.disabled = true;
-      try {
-        const card = document.getElementById("share-card");
-        document.getElementById("sc-name").textContent = state.profile.name || state.profile.login;
-        document.getElementById("sc-login").textContent = "@" + state.profile.login;
-        document.getElementById("sc-commits").textContent = state.commits.length;
-        document.getElementById("sc-repos").textContent = state.repos.length;
-        document.getElementById("sc-langs").textContent = Object.keys(state.languages).length;
-        card.style.left = "-9999px";
-        card.style.display = "block";
-        const canvas = await html2canvas(card, {
-          backgroundColor: "#2b5876",
-          // Base gradient color
-          scale: 3,
-          useCORS: true
-        });
-        card.style.display = "none";
-        const imgData = canvas.toDataURL("image/png");
-        const a = document.createElement("a");
-        a.href = imgData;
-        a.download = `trading_card_${state.profile.login || "export"}.png`;
-        a.click();
-      } catch (err) {
-        console.error("Export failed:", err);
-        alert("Failed to export dashboard.");
-      } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
       }
     }
   };
@@ -495,6 +442,76 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         </section>
       </div>
     `;
+    }
+  };
+
+  // js/trading-card.js
+  var TradingCardManager = {
+    init() {
+      const btn = $("btn-trading-card");
+      if (btn) {
+        btn.addEventListener("click", () => this.generateCard());
+      }
+    },
+    async generateCard() {
+      if (!state.profile) {
+        alert("Please analyze a profile first!");
+        return;
+      }
+      if (typeof html2canvas === "undefined") {
+        alert("html2canvas is still loading, please wait a moment and try again.");
+        return;
+      }
+      const btn = $("btn-trading-card");
+      const originalContent = btn.innerHTML;
+      btn.innerHTML = "Generating...";
+      btn.disabled = true;
+      try {
+        const card = $("tc-export-node");
+        $("tc-avatar").src = state.profile.avatar_url;
+        $("tc-name").textContent = state.profile.name || state.profile.login;
+        $("tc-login").textContent = "@" + state.profile.login;
+        const totalCommits = state.commits ? state.commits.length : 0;
+        $("tc-commits").textContent = totalCommits;
+        $("tc-repos").textContent = state.repos.length;
+        const stars = state.repos.reduce((acc, r) => acc + r.stars, 0);
+        $("tc-stars").textContent = stars;
+        const activityScore = $("score-value")?.textContent || "0";
+        $("tc-score").textContent = activityScore;
+        let title = "Code Alchemist";
+        const scoreNum = parseInt(activityScore) || 0;
+        if (scoreNum > 80) title = "Grandmaster of Code";
+        else if (scoreNum > 60) title = "Senior Architect";
+        else if (scoreNum > 40) title = "Journeyman Developer";
+        if (state.techStack.includes("React") || state.techStack.includes("Next.js")) title = "Frontend Sorcerer";
+        if (state.techStack.includes("Django") || state.techStack.includes("Go Modules") || state.techStack.includes("FastAPI")) title = "Backend Warlock";
+        $("tc-title-badge").textContent = title;
+        let allTech = [];
+        const topLangs = Object.keys(state.languages).slice(0, 3);
+        allTech = [...state.techStack.slice(0, 4), ...topLangs];
+        allTech = [...new Set(allTech)].slice(0, 6);
+        $("tc-stack").innerHTML = allTech.map(
+          (t) => `<span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 11px;">${escapeHtml(t)}</span>`
+        ).join("");
+        card.style.display = "block";
+        const canvas = await html2canvas(card, {
+          backgroundColor: null,
+          scale: 3,
+          useCORS: true
+        });
+        card.style.display = "none";
+        const link = document.createElement("a");
+        link.download = `${state.profile.login}-trading-card.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to generate trading card.");
+        $("tc-export-node").style.display = "none";
+      } finally {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+      }
     }
   };
 
@@ -1465,6 +1482,19 @@ Return ONLY raw JSON. No markdown backticks.`;
     </div>`;
     }).join("");
   }
+  function renderTechStack(techStack) {
+    const container = $("tech-stack-container");
+    const chips = $("tech-stack-chips");
+    if (!container || !chips) return;
+    if (techStack && techStack.length > 0) {
+      chips.innerHTML = techStack.map(
+        (tech) => `<span style="background: var(--accent-bg); color: var(--accent); padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid rgba(91,106,240,0.2);">${escapeHtml(tech)}</span>`
+      ).join("");
+      container.style.display = "block";
+    } else {
+      container.style.display = "none";
+    }
+  }
 
   // js/app.js
   function showError(code, customMessage) {
@@ -1655,6 +1685,67 @@ Return ONLY raw JSON. No markdown backticks.`;
       });
       state.languages = langMap;
       setStep("languages", true);
+      setStatus("Detecting tech stack...");
+      const topReposForStack = state.repos.filter((r) => !r.fork).sort((a, b) => b.stars - a.stars || b.updatedAt - a.updatedAt).slice(0, 10);
+      state.techStack = [];
+      if (topReposForStack.length > 0) {
+        let stackQuery = `query($login: String!) { user(login: $login) { `;
+        topReposForStack.forEach((r, i) => {
+          const safeName = `repo${i}`;
+          stackQuery += `
+          ${safeName}: repository(name: "${r.name}") {
+            pkg: object(expression: "HEAD:package.json") { ... on Blob { text } }
+            req: object(expression: "HEAD:requirements.txt") { ... on Blob { text } }
+            gomod: object(expression: "HEAD:go.mod") { ... on Blob { text } }
+            pom: object(expression: "HEAD:pom.xml") { ... on Blob { text } }
+            composer: object(expression: "HEAD:composer.json") { ... on Blob { text } }
+          }
+        `;
+        });
+        stackQuery += ` } }`;
+        try {
+          const stackData = await ApiClient.graphql(stackQuery, { login: username });
+          const techSet = /* @__PURE__ */ new Set();
+          if (stackData && stackData.user) {
+            Object.values(stackData.user).forEach((repoData) => {
+              if (!repoData) return;
+              if (repoData.pkg?.text) {
+                const text = repoData.pkg.text;
+                if (text.includes('"react"')) techSet.add("React");
+                if (text.includes('"next"')) techSet.add("Next.js");
+                if (text.includes('"vue"')) techSet.add("Vue");
+                if (text.includes('"svelte"')) techSet.add("Svelte");
+                if (text.includes('"express"')) techSet.add("Express");
+                if (text.includes('"tailwindcss"')) techSet.add("Tailwind CSS");
+                if (text.includes('"@angular/core"')) techSet.add("Angular");
+                techSet.add("Node.js");
+              }
+              if (repoData.req?.text) {
+                const text = repoData.req.text.toLowerCase();
+                if (text.includes("django")) techSet.add("Django");
+                if (text.includes("flask")) techSet.add("Flask");
+                if (text.includes("fastapi")) techSet.add("FastAPI");
+                if (text.includes("pandas") || text.includes("numpy")) techSet.add("Data Science");
+              }
+              if (repoData.gomod?.text) {
+                techSet.add("Go Modules");
+              }
+              if (repoData.pom?.text) {
+                const text = repoData.pom.text.toLowerCase();
+                if (text.includes("spring-boot")) techSet.add("Spring Boot");
+              }
+              if (repoData.composer?.text) {
+                const text = repoData.composer.text.toLowerCase();
+                if (text.includes("laravel/framework")) techSet.add("Laravel");
+                if (text.includes("symfony/symfony")) techSet.add("Symfony");
+              }
+            });
+          }
+          state.techStack = Array.from(techSet);
+        } catch (err) {
+          console.warn("Failed to fetch tech stack:", err);
+        }
+      }
       setStep("activity");
       setStatus("Analyzing commit activity & streak metrics...");
       const years = u.contributionsCollection?.contributionYears || [];
@@ -1761,6 +1852,7 @@ Return ONLY raw JSON. No markdown backticks.`;
       renderRepoHighlights();
       renderRepositories();
       renderLanguages(langStats);
+      renderTechStack(state.techStack);
       renderInsights(state.insights);
       ChatEngine.setContext({ ...analysisData, profile: state.profile });
       await new Promise((r) => setTimeout(r, 400));
@@ -1789,8 +1881,8 @@ Return ONLY raw JSON. No markdown backticks.`;
       ResumeManager.generate();
     });
     ThemeManager.init();
-    ExportManager.init();
     ChatEngine.init();
+    TradingCardManager.init();
     initNavigation();
     updateRecentSearchesUI();
     const urlParams = new URLSearchParams(window.location.search);
