@@ -63,7 +63,7 @@ export const TradingCardManager = {
       allTech = [...new Set(allTech)].slice(0, 6);
       
       $('tc-stack').innerHTML = allTech.map(t => 
-        `<span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 11px;">${escapeHtml(t)}</span>`
+        `<span style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; text-align: center; display: inline-block;">${escapeHtml(t)}</span>`
       ).join('');
       
       // Render
