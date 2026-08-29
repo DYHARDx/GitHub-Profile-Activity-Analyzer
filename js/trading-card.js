@@ -33,37 +33,71 @@ export const TradingCardManager = {
       $('tc-login').textContent = '@' + state.profile.login;
       
       const totalCommits = state.commits ? state.commits.length : 0;
-      $('tc-commits').textContent = totalCommits;
-      $('tc-repos').textContent = state.repos.length;
+      const commitsEl = $('tc-commits');
+      if (commitsEl) commitsEl.innerHTML = `<span style="position: relative; top: -4px; display: inline-block;">${totalCommits}</span>`;
+      
+      const reposEl = $('tc-repos');
+      if (reposEl) reposEl.innerHTML = `<span style="position: relative; top: -4px; display: inline-block;">${state.repos.length}</span>`;
       
       const stars = state.repos.reduce((acc, r) => acc + r.stars, 0);
-      $('tc-stars').textContent = stars;
+      const starsEl = $('tc-stars');
+      if (starsEl) starsEl.innerHTML = `<span style="position: relative; top: -4px; display: inline-block;">${stars}</span>`;
       
       const activityScore = $('score-value')?.textContent || '0';
-      $('tc-score').textContent = activityScore;
+      const scoreEl = $('tc-score');
+      if (scoreEl) scoreEl.innerHTML = `<span style="position: relative; top: -4px; display: inline-block;">${activityScore}</span>`;
       
-      // Setup Title
-      let title = 'Code Alchemist';
+      // Setup Title & Tier
       const scoreNum = parseInt(activityScore) || 0;
-      if (scoreNum > 80) title = 'Grandmaster of Code';
-      else if (scoreNum > 60) title = 'Senior Architect';
-      else if (scoreNum > 40) title = 'Journeyman Developer';
+      let title = '⚡ Code Alchemist';
+      let tier = 'EPIC DEV';
       
-      if (state.techStack.includes('React') || state.techStack.includes('Next.js')) title = 'Frontend Sorcerer';
-      if (state.techStack.includes('Django') || state.techStack.includes('Go Modules') || state.techStack.includes('FastAPI')) title = 'Backend Warlock';
+      if (scoreNum >= 80) {
+        title = '👑 Grandmaster of Code';
+        tier = 'MYTHIC DEV';
+      } else if (scoreNum >= 60) {
+        title = '🔮 Senior Architect';
+        tier = 'LEGENDARY DEV';
+      } else if (scoreNum >= 40) {
+        title = '⚔️ Journeyman Developer';
+        tier = 'EPIC DEV';
+      } else {
+        title = '🌱 Rising Coder';
+        tier = 'RARE DEV';
+      }
       
-      $('tc-title-badge').textContent = title;
+      if (state.techStack && (state.techStack.includes('React') || state.techStack.includes('Next.js'))) title = '✨ Frontend Sorcerer';
+      if (state.techStack && (state.techStack.includes('Django') || state.techStack.includes('Go Modules') || state.techStack.includes('FastAPI'))) title = '🛡️ Backend Warlock';
+      if (state.techStack && (state.techStack.includes('Docker') || state.techStack.includes('Kubernetes'))) title = '🚀 DevOps Commander';
+      
+      const tierBadge = $('tc-tier-badge');
+      if (tierBadge) tierBadge.textContent = tier;
+      
+      const levelEl = $('tc-level');
+      if (levelEl) {
+        const computedLvl = Math.max(1, Math.min(99, Math.floor(scoreNum * 0.8 + Math.min(totalCommits, 100) * 0.2)));
+        levelEl.textContent = `LVL. ${computedLvl}`;
+      }
+      
+      const serialEl = $('tc-serial');
+      if (serialEl) {
+        serialEl.textContent = `#DEV-${(state.profile.login || 'USER').toUpperCase().slice(0, 8)}-2026`;
+      }
+      
+      const titleBadge = $('tc-title-badge');
+      if (titleBadge) titleBadge.textContent = title;
       
       // Setup Stack
       let allTech = [];
-      const topLangs = Object.keys(state.languages).slice(0, 3);
-      allTech = [...state.techStack.slice(0, 4), ...topLangs];
+      const topLangs = state.languages ? Object.keys(state.languages).slice(0, 3) : [];
+      const stackList = state.techStack || [];
+      allTech = [...stackList.slice(0, 4), ...topLangs];
       
       // unique
       allTech = [...new Set(allTech)].slice(0, 6);
       
       $('tc-stack').innerHTML = allTech.map(t => 
-        `<span style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; text-align: center; display: inline-block;">${escapeHtml(t)}</span>`
+        `<table style="display: inline-table; vertical-align: middle; border-collapse: collapse; background: #141224; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; margin-right: 8px; margin-bottom: 6px;"><tr><td style="padding: 3px 16px 10px 16px; font-size: 13px; font-weight: 700; color: #ffffff; line-height: 1.1; text-align: center;">${escapeHtml(t)}</td></tr></table>`
       ).join('');
       
       // Render

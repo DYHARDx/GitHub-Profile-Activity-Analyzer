@@ -313,50 +313,89 @@
           <div id="repo-ranking-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
-        <!-- Hidden Trading Card DOM -->
-        <div id="tc-export-node" style="position: absolute; left: -9999px; top: 0; width: 400px; padding: 28px 24px; background: linear-gradient(135deg, #0f172a, #1e1b4b); color: white; border-radius: 24px; font-family: 'Inter', sans-serif; text-align: center; border: 4px solid #6366f1; overflow: hidden; box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);">
-          <div style="position: absolute; top: -50px; left: -50px; width: 150px; height: 150px; background: rgba(236, 72, 153, 0.25); filter: blur(40px); border-radius: 50%;"></div>
-          <div style="position: absolute; bottom: -50px; right: -50px; width: 150px; height: 150px; background: rgba(99, 102, 241, 0.25); filter: blur(40px); border-radius: 50%;"></div>
+        <!-- Developer ID Card DOM (Export Node) -->
+        <div id="tc-export-node"
+          style="position: absolute; left: -9999px; top: 0; width: 420px; box-sizing: border-box; padding: 26px 24px 22px; background: #0c0817; background-image: radial-gradient(circle at 50% 15%, #2a1b4e 0%, #120d24 50%, #06050b 100%); color: #ffffff; border-radius: 28px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; border: 2px solid rgba(139, 92, 246, 0.4); box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 25px rgba(124, 58, 237, 0.25); overflow: hidden;">
           
-          <div style="display: flex; justify-content: center; position: relative; z-index: 2; margin-bottom: 12px;">
-            <img id="tc-avatar" src="" style="width: 100px; height: 100px; border-radius: 50%; border: 4px solid #a855f7; object-fit: cover; display: block;" />
+          <!-- Top Header Bar -->
+          <div style="text-align: right; margin-bottom: 12px; position: relative; z-index: 2;">
+            <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #06b6d4; box-shadow: 0 0 10px #06b6d4; margin-right: 7px; vertical-align: middle;"></span>
+            <span id="tc-tier-badge" style="font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: #f472b6; text-transform: uppercase; vertical-align: middle; line-height: 1;">RARE DEV</span>
           </div>
-          <h2 id="tc-name" style="margin: 0; font-size: 26px; font-weight: 800; background: linear-gradient(to right, #e879f9, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; position: relative; z-index: 2; text-align: center;">Name</h2>
-          <p id="tc-login" style="margin: 4px 0 16px; opacity: 0.8; font-size: 15px; position: relative; z-index: 2; text-align: center;">@username</p>
-          
-          <div style="display: flex; justify-content: center; position: relative; z-index: 2; margin-bottom: 20px;">
-            <div id="tc-title-badge" style="display: inline-block; padding: 6px 18px; border-radius: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-weight: 600; font-size: 13px; text-align: center;">
-              Title
+          <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin-bottom: 22px; width: 100%; position: relative; z-index: 2;"></div>
+
+          <!-- Avatar Section with Glowing Ring -->
+          <div style="width: 110px; height: 110px; margin: 0 auto 16px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, #f472b6, #c084fc, #818cf8); box-shadow: 0 0 22px rgba(244, 114, 182, 0.65); box-sizing: border-box;">
+            <img id="tc-avatar" src="" style="width: 104px; height: 104px; border-radius: 50%; object-fit: cover; display: block; border: 2px solid #0c0817;" />
+          </div>
+
+          <!-- Name & Username -->
+          <h2 id="tc-name" style="margin: 0 0 3px; font-size: 24px; font-weight: 900; color: #ffffff; text-align: center; text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.15; position: relative; z-index: 2;">
+            Name
+          </h2>
+          <p id="tc-login" style="margin: 0 0 14px; font-size: 15px; font-weight: 700; color: #818cf8; text-align: center; line-height: 1.15; position: relative; z-index: 2;">
+            @username
+          </p>
+
+          <!-- Class Title Badge -->
+          <div style="text-align: center; margin-bottom: 22px; position: relative; z-index: 2;">
+            <div style="display: inline-block; background: linear-gradient(180deg, rgba(88, 28, 135, 0.55), rgba(49, 10, 82, 0.75)); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 20px; box-shadow: 0 0 16px rgba(168, 85, 247, 0.35); padding: 0 22px; height: 32px; box-sizing: border-box; text-align: center;">
+              <span id="tc-title-badge" style="font-size: 13px; font-weight: 700; color: #ffffff; line-height: 28px; display: inline-block; text-align: center; letter-spacing: 0.3px;">
+                🌱 Rising Coder
+              </span>
             </div>
           </div>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: rgba(0,0,0,0.35); padding: 16px; border-radius: 16px; position: relative; z-index: 2; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.06);">
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px 6px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.06);">
-              <span style="display: block; opacity: 0.75; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; text-align: center; width: 100%;">Rank Score</span>
-              <strong id="tc-score" style="font-size: 22px; color: #4ade80; text-align: center; width: 100%; display: block; line-height: 1.2;">0</strong>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px 6px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.06);">
-              <span style="display: block; opacity: 0.75; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; text-align: center; width: 100%;">Total Commits</span>
-              <strong id="tc-commits" style="font-size: 22px; text-align: center; width: 100%; display: block; line-height: 1.2;">0</strong>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px 6px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.06);">
-              <span style="display: block; opacity: 0.75; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; text-align: center; width: 100%;">Repositories</span>
-              <strong id="tc-repos" style="font-size: 22px; text-align: center; width: 100%; display: block; line-height: 1.2;">0</strong>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px 6px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.06);">
-              <span style="display: block; opacity: 0.75; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; text-align: center; width: 100%;">Total Stars</span>
-              <strong id="tc-stars" style="font-size: 22px; color: #fbbf24; text-align: center; width: 100%; display: block; line-height: 1.2;">0</strong>
-            </div>
+
+          <!-- Stats Grid Matrix Card -->
+          <div style="background: rgba(18, 13, 33, 0.65); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 18px; padding: 14px 10px; margin-bottom: 22px; position: relative; z-index: 2;">
+            <table style="width: 100%; border-collapse: collapse; text-align: center;">
+              <tr>
+                <td style="width: 50%; padding: 4px 10px 14px; border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                  <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Rank Score</div>
+                  <div id="tc-score" style="font-size: 24px; font-weight: 900; color: #34d399; font-family: monospace; line-height: 1.0; text-shadow: 0 0 12px rgba(52, 211, 153, 0.4);">0</div>
+                </td>
+                <td style="width: 50%; padding: 4px 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                  <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Commits</div>
+                  <div id="tc-commits" style="font-size: 24px; font-weight: 900; color: #38bdf8; font-family: monospace; line-height: 1.0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.4);">0</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="width: 50%; padding: 8px 10px 10px; border-right: 1px solid rgba(255, 255, 255, 0.08);">
+                  <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Repositories</div>
+                  <div id="tc-repos" style="font-size: 24px; font-weight: 900; color: #c084fc; font-family: monospace; line-height: 1.0; text-shadow: 0 0 12px rgba(192, 132, 252, 0.4);">0</div>
+                </td>
+                <td style="width: 50%; padding: 8px 10px 10px;">
+                  <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Total Stars</div>
+                  <div id="tc-stars" style="font-size: 24px; font-weight: 900; color: #facc15; font-family: monospace; line-height: 1.0; text-shadow: 0 0 12px rgba(250, 204, 21, 0.4);">0</div>
+                </td>
+              </tr>
+            </table>
           </div>
-          
-          <div style="position: relative; z-index: 2; text-align: center;">
-            <h4 style="margin: 0 0 10px; font-size: 12px; opacity: 0.75; text-transform: uppercase; letter-spacing: 1px; text-align: center;">Top Arsenal</h4>
-            <div id="tc-stack" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;"></div>
+
+          <!-- Top Arsenal Section -->
+          <div style="margin-bottom: 16px; text-align: left; position: relative; z-index: 2;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+              <tr>
+                <td style="text-align: left; font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 1.2px;">Top Arsenal</td>
+                <td style="text-align: right; font-size: 10px; font-weight: 700; color: #64748b; font-family: monospace; letter-spacing: 0.6px;">TECH STACK</td>
+              </tr>
+            </table>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td id="tc-stack" style="text-align: left; vertical-align: middle;"></td>
+                <td style="text-align: right; vertical-align: middle; width: 30px; font-size: 22px; color: #64748b; opacity: 0.6; line-height: 1; padding-bottom: 4px;">✦</td>
+              </tr>
+            </table>
           </div>
-          
-          <div style="margin-top: 24px; font-size: 10px; opacity: 0.5; font-family: 'JetBrains Mono', monospace; position: relative; z-index: 2; text-align: center; letter-spacing: 1px;">
-            GENERATED VIA GITHUB ANALYZER
-          </div>
+
+          <!-- Card Footer Divider & Monospace Barcode ID -->
+          <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin-bottom: 12px; width: 100%; position: relative; z-index: 2;"></div>
+          <table style="width: 100%; border-collapse: collapse; position: relative; z-index: 2;">
+            <tr>
+              <td id="tc-serial" style="text-align: left; font-size: 10px; color: #64748b; font-family: monospace;">#DEV-2026-ANALYSIS</td>
+              <td style="text-align: right; font-size: 10px; font-weight: 800; color: #a855f7; font-family: monospace; letter-spacing: 0.8px;">GITHUB DEVELOPER ID</td>
+            </tr>
+          </table>
         </div>
 
         <div class="stats-grid" id="stats-grid" role="list" aria-label="GitHub statistics"></div>
