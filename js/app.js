@@ -523,10 +523,10 @@ function init() {
   $('sidebar-overlay')?.addEventListener('click', closeSidebar);
 
   $('desktop-sidebar-toggle')?.addEventListener('click', () => {
-    $('sidebar')?.classList.toggle('collapsed');
-    $('main-content')?.classList.toggle('expanded');
-    const topbar = $('desktop-topbar');
-    if (topbar) topbar.style.display = 'none';
+    $('sidebar')?.classList.remove('collapsed');
+    $('main-content')?.classList.remove('expanded');
+    const toggleBtn = $('desktop-sidebar-toggle');
+    if (toggleBtn) toggleBtn.style.display = 'none';
   });
 
   $('close-sidebar-btn')?.addEventListener('click', () => {
@@ -535,8 +535,8 @@ function init() {
     } else {
       $('sidebar')?.classList.add('collapsed');
       $('main-content')?.classList.add('expanded');
-      const topbar = $('desktop-topbar');
-      if (topbar) topbar.style.display = 'flex';
+      const toggleBtn = $('desktop-sidebar-toggle');
+      if (toggleBtn) toggleBtn.style.display = 'inline-flex';
     }
   });
 
