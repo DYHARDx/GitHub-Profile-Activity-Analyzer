@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
 </p>
 
+
 <p align="center">
   <b>A comprehensive developer intelligence dashboard and portfolio analytics engine.</b><br>
   Analyze coding habits, inspect tech stacks, calculate lifetime contribution heatmaps, generate developer trading cards, export instant resumes, and get actionable AI career insights.
