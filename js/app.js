@@ -9,6 +9,7 @@ import { ResumeManager } from './resume.js';
 import { TradingCardManager } from './trading-card.js';
 import { JobsManager } from './jobs.js';
 import { CareerMatcher } from './career.js';
+import { RankingManager } from './ranking.js';
 import { ApiClient, InsightsEngine } from './api.js';
 import { DataProcessor } from './data.js';
 import {
@@ -410,11 +411,8 @@ async function analyzeProfile(rawUsername) {
     renderLanguages(langStats);
     renderTechStack(state.techStack);
     renderInsights(state.insights);
-<<<<<<< HEAD
     JobsManager.runJobMatcher();
-=======
     renderCareerSection(state.career, handleGenerateStrategy);
->>>>>>> 13a6262 (Add AI Career, Job & Internship Idea Matcher feature)
 
     ChatEngine.setContext({ ...analysisData, profile: state.profile });
 
@@ -501,6 +499,15 @@ async function handleGenerateStrategy(role) {
 function init() {
   $('btn-career-match')?.addEventListener('click', () => { JobsManager.runJobMatcher(); });
   $('btn-career-hub')?.addEventListener('click', () => { showSection('career'); });
+  
+  $('btn-repo-ranking')?.addEventListener('click', () => {
+    RankingManager.runRankingAnalysis();
+    $('repo-ranking-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  
+  $('close-repo-ranking')?.addEventListener('click', () => {
+    $('repo-ranking-container').style.display = 'none';
+  });
   $('btn-career-ideas')?.addEventListener('click', () => { showSection('career'); });
   $('btn-career-ask-ai')?.addEventListener('click', () => {
     ChatEngine.isOpen = false;

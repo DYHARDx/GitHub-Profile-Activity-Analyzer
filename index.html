@@ -277,6 +277,7 @@
           style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 10px;">
           <h2 id="overview-heading" class="section-heading" style="margin-bottom: 0;">Analytics Overview</h2>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-repo-ranking" class="neu-button secondary small" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> Repo Ranking</button>
             <button id="btn-career-hub" class="neu-button secondary small" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> Career & Jobs</button>
             <button id="btn-trading-card" class="neu-button primary small" type="button"
               style="background: linear-gradient(135deg, #a855f7, #ec4899);"><svg width="14" height="14"
@@ -295,6 +296,22 @@
               </svg> Generate Resume</button>
           </div>
           </div>
+        </div>
+
+        <div id="repo-ranking-container" class="neu-card" style="display: none; margin-bottom: 24px; position: relative;">
+          <button id="close-repo-ranking" class="icon-btn" style="position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; z-index: 10;" aria-label="Close Repo Ranking">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #3b82f6); display: flex; align-items: center; justify-content: center; color: white;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 1.2rem; font-weight: 700;">Codebase Analysis & Ranking</h3>
+              <p style="margin: 0; font-size: 0.85rem; opacity: 0.7;">AI analysis of your top repositories</p>
+            </div>
+          </div>
+          <div id="repo-ranking-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
         <!-- Hidden Trading Card DOM -->

@@ -512,6 +512,306 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
     }
   };
 
+  // js/api.js
+  var AppError2 = class extends Error {
+    constructor(code, detail) {
+      super(code);
+      this.code = code;
+      this.detail = detail;
+    }
+  };
+  var ApiClient = {
+    _headers() {
+      const token = CONFIG.GITHUB_TOKEN;
+      const h = { Accept: "application/vnd.github+json" };
+      if (token && token.trim()) {
+        h["Authorization"] = `Bearer ${token.trim()}`;
+      }
+      return h;
+    },
+    async get(path) {
+      const url = path.startsWith("http") ? path : `${CONFIG.GITHUB_API}${path}`;
+      const cached = Storage.getCached(url);
+      if (cached) return cached;
+      let resp;
+      try {
+        resp = await fetch(url, { headers: this._headers() });
+      } catch (networkErr) {
+        throw new AppError2("network_error", networkErr.message);
+      }
+      if (resp.status === 404) throw new AppError2("not_found");
+      if (resp.status === 401) throw new AppError2("invalid_token");
+      if (resp.status === 403) throw new AppError2("rate_limit");
+      if (!resp.ok) throw new AppError2("api_error", resp.status);
+      const data = await resp.json();
+      Storage.setCache(url, data);
+      return data;
+    },
+    async getPages(path, maxPages = 3, perPage = 100) {
+      const results = [];
+      for (let page = 1; page <= maxPages; page++) {
+        const sep = path.includes("?") ? "&" : "?";
+        const data = await this.get(`${path}${sep}per_page=${perPage}&page=${page}`);
+        if (Array.isArray(data)) {
+          results.push(...data);
+          if (data.length < perPage) break;
+        } else {
+          break;
+        }
+      }
+      return results;
+    },
+    async graphql(query, variables = {}) {
+      const url = "https://api.github.com/graphql";
+      let resp;
+      try {
+        resp = await fetch(url, {
+          method: "POST",
+          headers: this._headers(),
+          body: JSON.stringify({ query, variables })
+        });
+      } catch (networkErr) {
+        throw new AppError2("network_error", networkErr.message);
+      }
+      if (resp.status === 401) throw new AppError2("invalid_token");
+      if (resp.status === 403) throw new AppError2("rate_limit");
+      if (!resp.ok) throw new AppError2("api_error", resp.status);
+      const data = await resp.json();
+      if (data.errors) {
+        console.error("GraphQL Errors:", data.errors);
+        throw new AppError2("api_error", data.errors[0].message);
+      }
+      return data.data;
+    }
+  };
+  var InsightsEngine = {
+    async analyze(analysisData) {
+      const apiKey = CONFIG.GEMINI_API_KEY;
+      if (!apiKey || !apiKey.trim() || apiKey.startsWith("AQ.")) {
+        return this._fallbackInsights(analysisData);
+      }
+      const prompt = this._buildPrompt(analysisData);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent?key=${apiKey.trim()}`;
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 1200 }
+      };
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
+        const data = await resp.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        return this._parseResponse(text, analysisData);
+      } catch (e) {
+        console.warn("Gemini API unavailable, using local insights generator:", e);
+        return this._fallbackInsights(analysisData);
+      }
+    },
+    async generateJobs(state2) {
+      const apiKey = CONFIG.GEMINI_API_KEY;
+      if (!apiKey || !apiKey.trim()) {
+        return [
+          { title: "Frontend Developer", match: "85%", reason: "Solid experience with web technologies." },
+          { title: "Backend Engineer", match: "80%", reason: "Experience building server-side applications." },
+          { title: "Full Stack Developer", match: "90%", reason: "Balanced contributions across the stack." }
+        ];
+      }
+      const langNames = Object.keys(state2.languages || {}).slice(0, 5).join(", ");
+      const stack = (state2.techStack || []).join(", ");
+      const loc = state2.profile?.location || "Remote";
+      const repos = state2.profile?.public_repos || 0;
+      const isSenior = repos > 30 ? "Senior" : repos > 10 ? "Mid-level" : "Junior";
+      const prompt = `Based on the following developer profile, suggest exactly 3 specific job titles or roles they are highly suited for. 
+Consider their experience level as roughly "${isSenior}" based on their public activity (${repos} public repos).
+CRITICAL: The job titles MUST explicitly include their specific detected technologies (e.g. if they have React and Node.js, suggest "Senior React Developer" or "Node.js Backend Engineer").
+Keep the titles concise and professional.
+
+Profile Location: ${loc}
+Top Languages: ${langNames}
+Detected Frameworks/Tools: ${stack}
+
+Return ONLY a JSON array of objects, with no markdown formatting or extra text. Each object must have:
+- "title": The specific job title
+- "match": A realistic match percentage string (e.g. "95%")
+- "reason": A short 1-sentence explanation of why they fit this role based on their tech stack.
+
+Example:
+[{"title": "Senior React Developer", "match": "98%", "reason": "Your extensive use of React and Tailwind makes you a perfect fit."}]`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent?key=${apiKey.trim()}`;
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 200 }
+      };
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
+        const data = await resp.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const clean = text.replace(/```json?/gi, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(clean);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
+        return [{ title: "Software Engineer", match: "80%", reason: "General software development experience." }];
+      } catch (e) {
+        console.warn("Job generation failed:", e);
+        return [{ title: "Software Engineer", match: "80%", reason: "General software development experience." }];
+      }
+    },
+    async generateRepoRanking(reposSubset) {
+      const apiKey = CONFIG.GEMINI_API_KEY;
+      if (!apiKey || !apiKey.trim()) {
+        return reposSubset.slice(0, 3).map((r) => ({
+          repo: r.name,
+          tier: "A",
+          analysis: `Solid ${r.language || "code"} repository with ${r.stargazers_count} stars.`
+        }));
+      }
+      const repoData = reposSubset.map((r) => ({
+        name: r.name,
+        language: r.language,
+        stars: r.stargazers_count,
+        sizeKB: Math.round(r.size || 0),
+        forks: r.forks_count,
+        updated_at: r.updated_at
+      }));
+      const prompt = `You are a Senior Staff Engineer analyzing a developer's GitHub repositories. 
+Evaluate the following top repositories based on their metrics (stars, size, language, updates) and assign a codebase Tier ranking (S, A, B, or C) to each.
+- S-Tier: Highly impactful, large, popular, or extremely active.
+- A-Tier: Solid projects, good size or decent stars.
+- B-Tier: Standard projects, smaller size.
+- C-Tier: Minor scripts or inactive forks.
+
+Repositories Data:
+${JSON.stringify(repoData, null, 2)}
+
+Return ONLY a JSON array of objects. Each object MUST have:
+- "repo": The exact repository name.
+- "tier": The assigned tier ("S", "A", "B", or "C").
+- "analysis": A 1-2 sentence technical analysis justifying the tier based on the provided metrics.
+
+Example:
+[{"repo": "my-cool-app", "tier": "A", "analysis": "A solid React codebase with good community engagement (15 stars) and active updates."}]`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent?key=${apiKey.trim()}`;
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, topP: 0.8, maxOutputTokens: 500 }
+      };
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
+        const data = await resp.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const clean = text.replace(/```json?/gi, "").replace(/```/g, "").trim();
+        return JSON.parse(clean);
+      } catch (e) {
+        console.warn("Repo ranking failed:", e);
+        return reposSubset.slice(0, 3).map((r) => ({
+          repo: r.name,
+          tier: "B",
+          analysis: "Unable to generate AI ranking. Standard repository."
+        }));
+      }
+    },
+    _buildPrompt(d) {
+      return `You are a GitHub developer activity analyzer.
+Analyze ONLY the measurable GitHub metrics below. Return a valid JSON array of 7 insight objects.
+
+Metrics:
+${JSON.stringify(d, null, 2)}
+
+Required Schema:
+[
+  {
+    "id": "consistency|momentum|tech_focus|repo_health|open_source|pattern|career_advice",
+    "title": "Short Title",
+    "body": "1-2 sentence evidence-based factual summary. For career_advice, provide 1 actionable career tip based on their tech stack.",
+    "chips": ["Metric 1", "Metric 2"]
+  }
+]
+
+Return ONLY raw JSON. No markdown backticks.`;
+    },
+    _parseResponse(text, fallbackData) {
+      try {
+        const clean = text.replace(/```json?/gi, "").replace(/```/g, "").trim();
+        const arr = JSON.parse(clean);
+        if (Array.isArray(arr) && arr.length > 0) return arr;
+      } catch (_) {
+      }
+      return this._fallbackInsights(fallbackData);
+    },
+    _fallbackInsights(d) {
+      const {
+        totalCommits,
+        currentStreak,
+        longestStreak,
+        topLanguages,
+        totalRepos,
+        totalStars,
+        activeDays,
+        recentCommits90,
+        activityScore
+      } = d;
+      const topLangName = topLanguages && topLanguages.length > 0 ? topLanguages[0].name : "various languages";
+      const topLangPct = topLanguages && topLanguages.length > 0 ? `${topLanguages[0].pct.toFixed(0)}%` : "";
+      return [
+        {
+          id: "consistency",
+          title: "Activity Consistency",
+          body: activeDays > 0 ? `Recorded active contributions across ${activeDays} unique days with a peak streak of ${longestStreak} continuous days. ${currentStreak > 0 ? `Currently maintaining an active streak of ${currentStreak} days.` : "No current active streak."}` : "Profile shows periodic project releases with limited recorded public commit timestamps.",
+          chips: [`${activeDays || 0} active days`, `${longestStreak || 0}d longest streak`]
+        },
+        {
+          id: "momentum",
+          title: "Recent Momentum",
+          body: recentCommits90 > 0 ? `${recentCommits90} commits logged over the past 90 days, demonstrating steady development velocity.` : "Low commit activity detected within the last 90-day window on analyzed repositories.",
+          chips: [`${recentCommits90 || 0} commits (90d)`]
+        },
+        {
+          id: "tech_focus",
+          title: "Technology Stack",
+          body: topLanguages && topLanguages.length > 0 ? `Primary focus is ${topLangName}${topLangPct ? ` (${topLangPct} of tracked code)` : ""}. ${topLanguages.length > 1 ? `Also actively develops with ${topLanguages.slice(1, 3).map((l) => l.name).join(" and ")}.` : ""}` : "Repository languages span multiple domains and tooling.",
+          chips: topLanguages && topLanguages.length > 0 ? topLanguages.slice(0, 3).map((l) => `${l.name} ${l.pct.toFixed(0)}%`) : ["Polyglot"]
+        },
+        {
+          id: "repo_health",
+          title: "Repository Portfolio",
+          body: `Maintains ${totalRepos} public repositories with ${totalStars} total stargazers and ${totalCommits} analyzed commit records.`,
+          chips: [`${totalRepos} repos`, `${totalStars} stars`, `${totalCommits} commits`]
+        },
+        {
+          id: "open_source",
+          title: "Community Recognition",
+          body: totalStars > 0 ? `Public projects have gathered ${totalStars} stars across open repositories, reflecting community usage and interest.` : "Public repositories are available for exploration and collaboration on GitHub.",
+          chips: [`${totalStars} stars`, `Score: ${activityScore}/100`]
+        },
+        {
+          id: "pattern",
+          title: "Development Cadence",
+          body: totalCommits > 0 ? `Activity indicates ${currentStreak > 5 ? "a daily active" : activeDays > 20 ? "a regular weekly" : "a milestone-based"} workflow across the analyzed repository portfolio.` : "Activity follows episodic releases and project updates.",
+          chips: [`${topLanguages ? topLanguages.length : 0} languages`, `${totalRepos} repos`]
+        },
+        {
+          id: "career_advice",
+          title: "Career & Growth",
+          body: topLanguages && topLanguages.length > 0 ? `Consider contributing to major open-source projects in ${topLangName} to expand your portfolio. Exploring related frameworks can also boost your profile's visibility.` : "Start building a consistent contribution history by pushing small, regular updates to public repositories.",
+          chips: ["Growth Tip"]
+        }
+      ];
+    }
+  };
+
   // js/jobs.js
   var JobsManager = {
     async runJobMatcher() {
@@ -520,40 +820,47 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
       if (!container || !list || !state.profile) return;
       container.style.display = "block";
       list.innerHTML = `
-        <div style="text-align: center; opacity: 0.6; padding: 20px;">
-          <div class="insight-spinner" aria-hidden="true" style="margin: 0 auto 10px;"></div>
-          Analyzing profile and finding best matches...
-        </div>
-      `;
+      <div style="text-align: center; opacity: 0.6; padding: 20px;">
+        <div class="insight-spinner" aria-hidden="true" style="margin: 0 auto 10px;"></div>
+        Analyzing profile and finding best matches...
+      </div>
+    `;
       try {
-        const roles = await InsightsEngine.generateJobs(state.profile, state.techStack, state.languages);
+        const roles = await InsightsEngine.generateJobs(state);
         if (!roles || roles.length === 0) {
           list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px;">No specific matches found. Keep building!</div>`;
           return;
         }
         let loc = state.profile.location || "Remote";
-        list.innerHTML = roles.map((role) => {
-          const query = encodeURIComponent(`${role} jobs in ${loc}`);
-          const linkedInQuery = encodeURIComponent(role);
+        list.innerHTML = roles.map((roleObj) => {
+          const title = roleObj.title || roleObj;
+          const match = roleObj.match || "High Match";
+          const reason = roleObj.reason || "";
+          const query = encodeURIComponent(`${title} jobs in ${loc}`);
+          const linkedInQuery = encodeURIComponent(title);
           const linkedInLoc = encodeURIComponent(loc);
           return `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-              <div style="display: flex; flex-direction: column;">
-                <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(role)}</span>
-                <span style="font-size: 0.8rem; opacity: 0.7;">📍 ${escapeHtml(loc)} / Remote</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+            <div style="display: flex; flex-direction: column; max-width: 65%;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(title)}</span>
+                <span style="font-size: 0.7rem; background: rgba(56, 201, 122, 0.2); color: #38c97a; padding: 2px 6px; border-radius: 4px;">${escapeHtml(match)}</span>
               </div>
-              <div style="display: flex; gap: 8px;">
-                <a href="https://www.google.com/search?q=${query}&ibp=htl;jobs" target="_blank" rel="noopener noreferrer" style="background: white; color: #1a1a1a; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  Google Jobs
-                </a>
-                <a href="https://www.linkedin.com/jobs/search/?keywords=${linkedInQuery}&location=${linkedInLoc}" target="_blank" rel="noopener noreferrer" style="background: #0a66c2; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                  LinkedIn
-                </a>
-              </div>
+              <span style="font-size: 0.8rem; opacity: 0.7; margin-top: 2px;">\u{1F4CD} ${escapeHtml(loc)} / Remote</span>
+              ${reason ? `<span style="font-size: 0.75rem; opacity: 0.8; margin-top: 6px; font-style: italic;">${escapeHtml(reason)}</span>` : ""}
             </div>
-          `;
+            <div style="display: flex; gap: 8px;">
+              <a href="https://www.google.com/search?q=${query}&ibp=htl;jobs" target="_blank" rel="noopener noreferrer" style="background: white; color: #1a1a1a; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                Google Jobs
+              </a>
+              <a href="https://www.linkedin.com/jobs/search/?keywords=${linkedInQuery}&location=${linkedInLoc}" target="_blank" rel="noopener noreferrer" style="background: #0a66c2; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                LinkedIn
+              </a>
+            </div>
+          </div>
+        `;
         }).join("");
       } catch (err) {
         console.error(err);
@@ -564,6 +871,7 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
 
   // js/career.js
   var CareerMatcher = {
+    // Database of roles with matching criteria, skill requirements, and project ideas
     ROLES_CATALOG: [
       {
         id: "frontend-intern",
@@ -770,9 +1078,11 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         searchKeywords: "Open Source Software Fellowship"
       }
     ],
+    // Main career analysis engine
     analyzeCareer(profileData) {
       const { profile, repos, langStats, commits, streaks, techStack = [] } = profileData;
       const topLangs = (langStats || []).map((l) => l.name);
+      const topLangNamesLower = topLangs.map((l) => l.toLowerCase());
       const topLangPcts = {};
       (langStats || []).forEach((l) => {
         topLangPcts[l.name] = l.pct;
@@ -845,7 +1155,7 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         return {
           title: "AI & Data Science Specialist",
           tagline: "Excels at building intelligent algorithms, analyzing large datasets, and deploying machine learning models.",
-          badge: "🤖 AI / ML Domain",
+          badge: "\u{1F916} AI / ML Domain",
           color: "#9f7aea"
         };
       }
@@ -854,14 +1164,14 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
           return {
             title: "Full-Stack Web Architect",
             tagline: "Versatile across modern frontend user experiences and scalable server-side REST APIs.",
-            badge: "⚡ Full-Stack Domain",
+            badge: "\u26A1 Full-Stack Domain",
             color: "#5b6af0"
           };
         }
         return {
           title: "Frontend UI/UX Specialist",
           tagline: "Focuses on craft, fluid user interactions, component architectures, and responsive design systems.",
-          badge: "🎨 Frontend Domain",
+          badge: "\u{1F3A8} Frontend Domain",
           color: "#38c97a"
         };
       }
@@ -869,7 +1179,7 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         return {
           title: "Systems & Performance Engineer",
           tagline: "Specializes in high-throughput backends, memory-safe code, and low-latency infrastructure.",
-          badge: "⚙️ Systems Domain",
+          badge: "\u2699\uFE0F Systems Domain",
           color: "#f79824"
         };
       }
@@ -877,7 +1187,7 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         return {
           title: "Mobile Application Creator",
           tagline: "Passionate about mobile ecosystems, touch-first ergonomics, and cross-platform native apps.",
-          badge: "📱 Mobile Domain",
+          badge: "\u{1F4F1} Mobile Domain",
           color: "#ed64a6"
         };
       }
@@ -885,14 +1195,14 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         return {
           title: "Polyglot Software Engineer",
           tagline: "Adaptable problem-solver proficient across multiple programming paradigms and runtimes.",
-          badge: "🌐 Polyglot Domain",
+          badge: "\u{1F310} Polyglot Domain",
           color: "#38b2ac"
         };
       }
       return {
         title: "Software Engineering Explorer",
         tagline: "Building versatile software foundations and actively expanding repository portfolio.",
-        badge: "🚀 Core Engineering",
+        badge: "\u{1F680} Core Engineering",
         color: "#5b6af0"
       };
     },
@@ -924,6 +1234,7 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
       }
       return { score, level, badgeClass, desc };
     },
+    // Generates an AI Job Application & Interview Prep Strategy
     async generateAiCareerStrategy(role, profileData) {
       const apiKey = CONFIG.GEMINI_API_KEY;
       const { profile, langStats, repos } = profileData;
@@ -993,300 +1304,64 @@ Return a JSON object with this EXACT structure (no markdown fences, just pure JS
     }
   };
 
-  // js/api.js
-  var AppError2 = class extends Error {
-    constructor(code, detail) {
-      super(code);
-      this.code = code;
-      this.detail = detail;
-    }
-  };
-  var ApiClient = {
-    _headers() {
-      const token = CONFIG.GITHUB_TOKEN;
-      const h = { Accept: "application/vnd.github+json" };
-      if (token && token.trim()) {
-        h["Authorization"] = `Bearer ${token.trim()}`;
-      }
-      return h;
-    },
-    async get(path) {
-      const url = path.startsWith("http") ? path : `${CONFIG.GITHUB_API}${path}`;
-      const cached = Storage.getCached(url);
-      if (cached) return cached;
-      let resp;
-      try {
-        resp = await fetch(url, { headers: this._headers() });
-      } catch (networkErr) {
-        throw new AppError2("network_error", networkErr.message);
-      }
-      if (resp.status === 404) throw new AppError2("not_found");
-      if (resp.status === 401) throw new AppError2("invalid_token");
-      if (resp.status === 403) throw new AppError2("rate_limit");
-      if (!resp.ok) throw new AppError2("api_error", resp.status);
-      const data = await resp.json();
-      Storage.setCache(url, data);
-      return data;
-    },
-    async getPages(path, maxPages = 3, perPage = 100) {
-      const results = [];
-      for (let page = 1; page <= maxPages; page++) {
-        const sep = path.includes("?") ? "&" : "?";
-        const data = await this.get(`${path}${sep}per_page=${perPage}&page=${page}`);
-        if (Array.isArray(data)) {
-          results.push(...data);
-          if (data.length < perPage) break;
-        } else {
-          break;
-        }
-      }
-      return results;
-    },
-    async graphql(query, variables = {}) {
-      const url = "https://api.github.com/graphql";
-      let resp;
-      try {
-        resp = await fetch(url, {
-          method: "POST",
-          headers: this._headers(),
-          body: JSON.stringify({ query, variables })
-        });
-      } catch (networkErr) {
-        throw new AppError2("network_error", networkErr.message);
-      }
-      if (resp.status === 401) throw new AppError2("invalid_token");
-      if (resp.status === 403) throw new AppError2("rate_limit");
-      if (!resp.ok) throw new AppError2("api_error", resp.status);
-      const data = await resp.json();
-      if (data.errors) {
-        console.error("GraphQL Errors:", data.errors);
-        throw new AppError2("api_error", data.errors[0].message);
-      }
-      return data.data;
-    }
-  };
-  var InsightsEngine = {
-    async analyze(analysisData) {
-      const apiKey = CONFIG.GEMINI_API_KEY;
-      if (!apiKey || !apiKey.trim() || apiKey.startsWith("AQ.")) {
-        return this._fallbackInsights(analysisData);
-      }
-      const prompt = this._buildPrompt(analysisData);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent?key=${apiKey.trim()}`;
-      const body = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 1200 }
-      };
-      try {
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
-        const data = await resp.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        return this._parseResponse(text, analysisData);
-      } catch (e) {
-        console.warn("Gemini API unavailable, using local insights generator:", e);
-        return this._fallbackInsights(analysisData);
-      }
-    },
-    async generateJobs(state2) {
-      const apiKey = CONFIG.GEMINI_API_KEY;
-      if (!apiKey || !apiKey.trim()) {
-        return [
-          { title: "Frontend Developer", match: "85%", reason: "Solid experience with web technologies." },
-          { title: "Backend Engineer", match: "80%", reason: "Experience building server-side applications." },
-          { title: "Full Stack Developer", match: "90%", reason: "Balanced contributions across the stack." }
-        ];
-      }
-      const langNames = Object.keys(state2.languages || {}).slice(0, 5).join(", ");
-      const stack = (state2.techStack || []).join(", ");
-      const loc = state2.profile?.location || "Remote";
-      const repos = state2.profile?.public_repos || 0;
-      const isSenior = repos > 30 ? "Senior" : repos > 10 ? "Mid-level" : "Junior";
-      const prompt = `Based on the following developer profile, suggest exactly 3 specific job titles or roles they are highly suited for. 
-Consider their experience level as roughly "${isSenior}" based on their public activity (${repos} public repos).
-CRITICAL: The job titles MUST explicitly include their specific detected technologies (e.g. if they have React and Node.js, suggest "Senior React Developer" or "Node.js Backend Engineer").
-Keep the titles concise and professional.
-
-Profile Location: ${loc}
-Top Languages: ${langNames}
-Detected Frameworks/Tools: ${stack}
-
-Return ONLY a JSON array of objects, with no markdown formatting or extra text. Each object must have:
-- "title": The specific job title
-- "match": A realistic match percentage string (e.g. "95%")
-- "reason": A short 1-sentence explanation of why they fit this role based on their tech stack.
-
-Example:
-[{"title": "Senior React Developer", "match": "98%", "reason": "Your extensive use of React and Tailwind makes you a perfect fit."}]`;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent?key=${apiKey.trim()}`;
-      const body = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 200 }
-      };
-      try {
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
-        const data = await resp.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const clean = text.replace(/```json?/gi, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(clean);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
-        return [{ title: "Software Engineer", match: "80%", reason: "General software development experience." }];
-      } catch (e) {
-        console.warn("Job generation failed:", e);
-        return [{ title: "Software Engineer", match: "80%", reason: "General software development experience." }];
-      }
-    },
-    _buildPrompt(d) {
-      return `You are a GitHub developer activity analyzer.
-Analyze ONLY the measurable GitHub metrics below. Return a valid JSON array of 7 insight objects.
-
-Metrics:
-${JSON.stringify(d, null, 2)}
-
-Required Schema:
-[
-  {
-    "id": "consistency|momentum|tech_focus|repo_health|open_source|pattern|career_advice",
-    "title": "Short Title",
-    "body": "1-2 sentence evidence-based factual summary. For career_advice, provide 1 actionable career tip based on their tech stack.",
-    "chips": ["Metric 1", "Metric 2"]
-  }
-]
-
-Return ONLY raw JSON. No markdown backticks.`;
-    },
-    _parseResponse(text, fallbackData) {
-      try {
-        const clean = text.replace(/```json?/gi, "").replace(/```/g, "").trim();
-        const arr = JSON.parse(clean);
-        if (Array.isArray(arr) && arr.length > 0) return arr;
-      } catch (_) {
-      }
-      return this._fallbackInsights(fallbackData);
-    },
-    _fallbackInsights(d) {
-      const {
-        totalCommits,
-        currentStreak,
-        longestStreak,
-        topLanguages,
-        totalRepos,
-        totalStars,
-        activeDays,
-        recentCommits90,
-        activityScore
-      } = d;
-      const topLangName = topLanguages && topLanguages.length > 0 ? topLanguages[0].name : "various languages";
-      const topLangPct = topLanguages && topLanguages.length > 0 ? `${topLanguages[0].pct.toFixed(0)}%` : "";
-      return [
-        {
-          id: "consistency",
-          title: "Activity Consistency",
-          body: activeDays > 0 ? `Recorded active contributions across ${activeDays} unique days with a peak streak of ${longestStreak} continuous days. ${currentStreak > 0 ? `Currently maintaining an active streak of ${currentStreak} days.` : "No current active streak."}` : "Profile shows periodic project releases with limited recorded public commit timestamps.",
-          chips: [`${activeDays || 0} active days`, `${longestStreak || 0}d longest streak`]
-        },
-        {
-          id: "momentum",
-          title: "Recent Momentum",
-          body: recentCommits90 > 0 ? `${recentCommits90} commits logged over the past 90 days, demonstrating steady development velocity.` : "Low commit activity detected within the last 90-day window on analyzed repositories.",
-          chips: [`${recentCommits90 || 0} commits (90d)`]
-        },
-        {
-          id: "tech_focus",
-          title: "Technology Stack",
-          body: topLanguages && topLanguages.length > 0 ? `Primary focus is ${topLangName}${topLangPct ? ` (${topLangPct} of tracked code)` : ""}. ${topLanguages.length > 1 ? `Also actively develops with ${topLanguages.slice(1, 3).map((l) => l.name).join(" and ")}.` : ""}` : "Repository languages span multiple domains and tooling.",
-          chips: topLanguages && topLanguages.length > 0 ? topLanguages.slice(0, 3).map((l) => `${l.name} ${l.pct.toFixed(0)}%`) : ["Polyglot"]
-        },
-        {
-          id: "repo_health",
-          title: "Repository Portfolio",
-          body: `Maintains ${totalRepos} public repositories with ${totalStars} total stargazers and ${totalCommits} analyzed commit records.`,
-          chips: [`${totalRepos} repos`, `${totalStars} stars`, `${totalCommits} commits`]
-        },
-        {
-          id: "open_source",
-          title: "Community Recognition",
-          body: totalStars > 0 ? `Public projects have gathered ${totalStars} stars across open repositories, reflecting community usage and interest.` : "Public repositories are available for exploration and collaboration on GitHub.",
-          chips: [`${totalStars} stars`, `Score: ${activityScore}/100`]
-        },
-        {
-          id: "pattern",
-          title: "Development Cadence",
-          body: totalCommits > 0 ? `Activity indicates ${currentStreak > 5 ? "a daily active" : activeDays > 20 ? "a regular weekly" : "a milestone-based"} workflow across the analyzed repository portfolio.` : "Activity follows episodic releases and project updates.",
-          chips: [`${topLanguages ? topLanguages.length : 0} languages`, `${totalRepos} repos`]
-        },
-        {
-          id: "career_advice",
-          title: "Career & Growth",
-          body: topLanguages && topLanguages.length > 0 ? `Consider contributing to major open-source projects in ${topLangName} to expand your portfolio. Exploring related frameworks can also boost your profile's visibility.` : "Start building a consistent contribution history by pushing small, regular updates to public repositories.",
-          chips: ["Growth Tip"]
-        }
-      ];
-    }
-  };
-
-  // js/jobs.js
-  var JobsManager = {
-    async runJobMatcher() {
-      const container = $("career-matcher-container");
-      const list = $("career-roles-list");
-      if (!container || !list || !state.profile) return;
+  // js/ranking.js
+  var RankingManager = {
+    async runRankingAnalysis() {
+      const container = $("repo-ranking-container");
+      const list = $("repo-ranking-list");
+      if (!container || !list || !state.repos || state.repos.length === 0) return;
       container.style.display = "block";
+      const sortedRepos = [...state.repos].sort((a, b) => {
+        const scoreA = a.stargazers_count * 10 + a.forks_count * 5 + a.size / 1e3;
+        const scoreB = b.stargazers_count * 10 + b.forks_count * 5 + b.size / 1e3;
+        return scoreB - scoreA;
+      }).slice(0, 10);
       list.innerHTML = `
       <div style="text-align: center; opacity: 0.6; padding: 20px;">
         <div class="insight-spinner" aria-hidden="true" style="margin: 0 auto 10px;"></div>
-        Analyzing profile and finding best matches...
+        Scanning repositories and analyzing codebase impact...
       </div>
     `;
       try {
-        const roles = await InsightsEngine.generateJobs(state);
-        if (!roles || roles.length === 0) {
-          list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px;">No specific matches found. Keep building!</div>`;
+        const rankings = await InsightsEngine.generateRepoRanking(sortedRepos);
+        if (!rankings || rankings.length === 0) {
+          list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px;">Not enough repository data for ranking.</div>`;
           return;
         }
-        let loc = state.profile.location || "Remote";
-        list.innerHTML = roles.map((roleObj) => {
-          const title = roleObj.title || roleObj;
-          const match = roleObj.match || "High Match";
-          const reason = roleObj.reason || "";
-          const query = encodeURIComponent(`${title} jobs in ${loc}`);
-          const linkedInQuery = encodeURIComponent(title);
-          const linkedInLoc = encodeURIComponent(loc);
-          return `
-          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-            <div style="display: flex; flex-direction: column; max-width: 65%;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(title)}</span>
-                <span style="font-size: 0.7rem; background: rgba(56, 201, 122, 0.2); color: #38c97a; padding: 2px 6px; border-radius: 4px;">${escapeHtml(match)}</span>
-              </div>
-              <span style="font-size: 0.8rem; opacity: 0.7; margin-top: 2px;">\u{1F4CD} ${escapeHtml(loc)} / Remote</span>
-              ${reason ? `<span style="font-size: 0.75rem; opacity: 0.8; margin-top: 6px; font-style: italic;">${escapeHtml(reason)}</span>` : ""}
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <a href="https://www.google.com/search?q=${query}&ibp=htl;jobs" target="_blank" rel="noopener noreferrer" style="background: white; color: #1a1a1a; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                Google Jobs
-              </a>
-              <a href="https://www.linkedin.com/jobs/search/?keywords=${linkedInQuery}&location=${linkedInLoc}" target="_blank" rel="noopener noreferrer" style="background: #0a66c2; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                LinkedIn
-              </a>
-            </div>
+        const getTierColor = (tier) => {
+          switch (tier.toUpperCase()) {
+            case "S":
+              return "background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;";
+            // Gold
+            case "A":
+              return "background: linear-gradient(135deg, #00C9FF, #92FE9D); color: #000;";
+            // Cyan/Green
+            case "B":
+              return "background: linear-gradient(135deg, #8E2DE2, #4A00E0); color: #fff;";
+            // Purple
+            case "C":
+              return "background: linear-gradient(135deg, #3a3a3a, #5a5a5a); color: #fff;";
+            // Gray
+            default:
+              return "background: #333; color: #fff;";
+          }
+        };
+        list.innerHTML = rankings.map((r) => `
+        <div style="display: flex; gap: 16px; align-items: flex-start; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px;">
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 48px; height: 48px; border-radius: 8px; font-weight: 900; font-size: 1.5rem; ${getTierColor(r.tier)}">
+            ${escapeHtml(r.tier)}
           </div>
-        `;
-        }).join("");
+          <div style="display: flex; flex-direction: column; flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <span style="font-weight: 600; font-size: 1.1rem; color: #fff;">${escapeHtml(r.repo)}</span>
+            </div>
+            <p style="font-size: 0.85rem; opacity: 0.8; margin-top: 6px; line-height: 1.4;">${escapeHtml(r.analysis)}</p>
+          </div>
+        </div>
+      `).join("");
       } catch (err) {
         console.error(err);
-        list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px; color: #ff6b81;">Failed to generate career matches. Please try again later.</div>`;
+        list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px; color: #ff6b81;">Failed to generate repository rankings. Please try again later.</div>`;
       }
     }
   };
@@ -2079,13 +2154,9 @@ Return ONLY raw JSON. No markdown backticks.`;
       container.style.display = "none";
     }
   }
-
   function renderCareerSection(careerData, onGenerateStrategy) {
     if (!careerData) return;
-
     const { archetype, readiness, topLanguages, matchedRoles } = careerData;
-
-    // 1. Archetype Banner
     const archBadge = $("career-archetype-badge");
     const archTitle = $("career-archetype-title");
     const archTagline = $("career-archetype-tagline");
@@ -2096,38 +2167,29 @@ Return ONLY raw JSON. No markdown backticks.`;
     }
     if (archTitle) archTitle.textContent = archetype.title;
     if (archTagline) archTagline.textContent = archetype.tagline;
-
-    // 2. Readiness Meter
     const readBadge = $("career-readiness-badge");
     const readScore = $("career-readiness-score");
     const readDesc = $("career-readiness-desc");
     if (readBadge) readBadge.textContent = readiness.level;
     if (readScore) readScore.textContent = readiness.score;
     if (readDesc) readDesc.textContent = readiness.desc;
-
-    // 3. Language Pills
     const langPills = $("career-lang-pills");
     if (langPills) {
       langPills.innerHTML = (topLanguages || []).map(
         (lang) => `<span class="career-lang-pill">
-          <span class="lang-dot" style="background:${getLangColor(lang)}"></span>
-          <span>${escapeHtml(lang)}</span>
-        </span>`
+        <span class="lang-dot" style="background:${getLangColor(lang)}"></span>
+        <span>${escapeHtml(lang)}</span>
+      </span>`
       ).join("");
     }
-
-    // 4. Tab Counts
     const internCount = matchedRoles.filter((r) => r.type.includes("Internship")).length;
     const juniorCount = matchedRoles.filter((r) => r.type.includes("Junior") || r.type.includes("Entry")).length;
     if ($("career-count-all")) $("career-count-all").textContent = matchedRoles.length;
     if ($("career-count-intern")) $("career-count-intern").textContent = internCount;
     if ($("career-count-junior")) $("career-count-junior").textContent = juniorCount;
-
-    // 5. Render Filtered Role Cards
     function renderRoles(filter = "all") {
       const grid = $("career-roles-grid");
       if (!grid) return;
-
       let list = [...matchedRoles];
       if (filter === "Internship") {
         list = list.filter((r) => r.type.includes("Internship"));
@@ -2136,80 +2198,76 @@ Return ONLY raw JSON. No markdown backticks.`;
       } else if (filter === "high-match") {
         list = list.filter((r) => r.matchPct >= 80);
       }
-
       if (list.length === 0) {
         grid.innerHTML = `<div class="neu-card" style="padding: 30px; text-align: center; grid-column: 1 / -1;">
-          <p style="color: var(--text-secondary);">No roles found for this filter. Try viewing All Roles.</p>
-        </div>`;
+        <p style="color: var(--text-secondary);">No roles found for this filter. Try viewing All Roles.</p>
+      </div>`;
         return;
       }
-
       grid.innerHTML = list.map((role, idx) => `
-        <div class="career-role-card neu-card" style="animation-delay: ${idx * 60}ms;">
-          <div>
-            <div class="career-role-header">
-              <div>
-                <h3 class="career-role-title">${escapeHtml(role.title)}</h3>
-                <span class="career-role-type">${escapeHtml(role.type)} • ${escapeHtml(role.category)}</span>
-              </div>
-              <div class="career-match-badge">
-                <span class="career-match-pct">${role.matchPct}%</span>
-                <span class="career-match-label">Match</span>
-              </div>
+      <div class="career-role-card neu-card" style="animation-delay: ${idx * 60}ms;">
+        <div>
+          <div class="career-role-header">
+            <div>
+              <h3 class="career-role-title">${escapeHtml(role.title)}</h3>
+              <span class="career-role-type">${escapeHtml(role.type)} \u2022 ${escapeHtml(role.category)}</span>
             </div>
-
-            <div class="career-match-bar-track">
-              <div class="career-match-bar-fill" style="width: ${role.matchPct}%;"></div>
-            </div>
-
-            <p class="career-role-desc">${escapeHtml(role.description)}</p>
-
-            <div class="career-skills-wrap">
-              <div class="career-section-label">Skills You Have</div>
-              <div class="career-skills-list" style="margin-bottom: 8px;">
-                ${role.skillsPossessed.map((s) => `<span class="career-skill-tag possessed">✓ ${escapeHtml(s)}</span>`).join("")}
-              </div>
-              <div class="career-section-label">High-Impact Skills to Add</div>
-              <div class="career-skills-list">
-                ${role.skillsToLearn.map((s) => `<span class="career-skill-tag to-learn">+ ${escapeHtml(s)}</span>`).join("")}
-              </div>
-            </div>
-
-            <div class="career-projects-wrap">
-              <div class="career-section-label">Recommended Portfolio Projects</div>
-              ${role.projectIdeas.map((p) => `
-                <div class="career-project-item">
-                  <span class="career-project-bullet">⚡</span>
-                  <span>${escapeHtml(p)}</span>
-                </div>
-              `).join("")}
+            <div class="career-match-badge">
+              <span class="career-match-pct">${role.matchPct}%</span>
+              <span class="career-match-label">Match</span>
             </div>
           </div>
 
-          <div class="career-actions-row">
-            <button class="neu-button primary small btn-generate-strategy" data-role-id="${role.id}" style="width: 100%;">
-              🤖 Generate AI Job Strategy
-            </button>
-            
-            <div class="career-search-links">
-              <a href="${role.links.linkedin}" target="_blank" rel="noopener noreferrer" class="career-job-link linkedin" title="Search on LinkedIn">
-                <span>LinkedIn</span> ↗
-              </a>
-              <a href="${role.links.indeed}" target="_blank" rel="noopener noreferrer" class="career-job-link indeed" title="Search on Indeed">
-                <span>Indeed</span> ↗
-              </a>
-              <a href="${role.links.wellfound}" target="_blank" rel="noopener noreferrer" class="career-job-link wellfound" title="Search Startups on Wellfound">
-                <span>Wellfound</span> ↗
-              </a>
-              <a href="${role.links.google}" target="_blank" rel="noopener noreferrer" class="career-job-link" title="Search on Google Jobs">
-                <span>Google</span> ↗
-              </a>
+          <div class="career-match-bar-track">
+            <div class="career-match-bar-fill" style="width: ${role.matchPct}%;"></div>
+          </div>
+
+          <p class="career-role-desc">${escapeHtml(role.description)}</p>
+
+          <div class="career-skills-wrap">
+            <div class="career-section-label">Skills You Have</div>
+            <div class="career-skills-list" style="margin-bottom: 8px;">
+              ${role.skillsPossessed.map((s) => `<span class="career-skill-tag possessed">\u2713 ${escapeHtml(s)}</span>`).join("")}
             </div>
+            <div class="career-section-label">High-Impact Skills to Add</div>
+            <div class="career-skills-list">
+              ${role.skillsToLearn.map((s) => `<span class="career-skill-tag to-learn">+ ${escapeHtml(s)}</span>`).join("")}
+            </div>
+          </div>
+
+          <div class="career-projects-wrap">
+            <div class="career-section-label">Recommended Portfolio Projects</div>
+            ${role.projectIdeas.map((p) => `
+              <div class="career-project-item">
+                <span class="career-project-bullet">\u26A1</span>
+                <span>${escapeHtml(p)}</span>
+              </div>
+            `).join("")}
           </div>
         </div>
-      `).join("");
 
-      // Attach strategy button listeners
+        <div class="career-actions-row">
+          <button class="neu-button primary small btn-generate-strategy" data-role-id="${role.id}" style="width: 100%;">
+            \u{1F916} Generate AI Job Strategy
+          </button>
+          
+          <div class="career-search-links">
+            <a href="${role.links.linkedin}" target="_blank" rel="noopener noreferrer" class="career-job-link linkedin" title="Search on LinkedIn">
+              <span>LinkedIn</span> \u2197
+            </a>
+            <a href="${role.links.indeed}" target="_blank" rel="noopener noreferrer" class="career-job-link indeed" title="Search on Indeed">
+              <span>Indeed</span> \u2197
+            </a>
+            <a href="${role.links.wellfound}" target="_blank" rel="noopener noreferrer" class="career-job-link wellfound" title="Search Startups on Wellfound">
+              <span>Wellfound</span> \u2197
+            </a>
+            <a href="${role.links.google}" target="_blank" rel="noopener noreferrer" class="career-job-link" title="Search on Google Jobs">
+              <span>Google</span> \u2197
+            </a>
+          </div>
+        </div>
+      </div>
+    `).join("");
       grid.querySelectorAll(".btn-generate-strategy").forEach((btn) => {
         btn.addEventListener("click", () => {
           const roleId = btn.dataset.roleId;
@@ -2220,11 +2278,7 @@ Return ONLY raw JSON. No markdown backticks.`;
         });
       });
     }
-
-    // Initial render
     renderRoles("all");
-
-    // Filter tabs listeners
     document.querySelectorAll(".career-tab-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".career-tab-btn").forEach((b) => b.classList.remove("active"));
@@ -2581,16 +2635,14 @@ Return ONLY raw JSON. No markdown backticks.`;
       };
       state.insights = await InsightsEngine.analyze(analysisData);
       setStep("insights", true);
-
       state.career = CareerMatcher.analyzeCareer({
         profile: state.profile,
         repos: state.repos,
         langStats,
         commits: state.commits,
         streaks,
-        techStack: state.techStack,
+        techStack: state.techStack
       });
-
       setStatus("Preparing dashboard presentation...");
       renderProfile(state.profile);
       renderStats(stats, streaks);
@@ -2615,86 +2667,96 @@ Return ONLY raw JSON. No markdown backticks.`;
       showError(err.code, err.message);
     }
   }
-
   async function handleGenerateStrategy(role) {
     const modal = $("ai-strategy-modal");
     const title = $("strategy-role-title");
     const sub = $("strategy-role-subtitle");
     const content = $("ai-strategy-content");
     if (!modal || !content) return;
-
     showEl(modal);
-    if (title) title.textContent = `${role.title} — AI Application Blueprint`;
-    if (sub) sub.textContent = `Targeting ${role.category} • Match ${role.matchPct}%`;
-
+    if (title) title.textContent = `${role.title} \u2014 AI Application Blueprint`;
+    if (sub) sub.textContent = `Targeting ${role.category} \u2022 Match ${role.matchPct}%`;
     content.innerHTML = `
-      <div class="insight-loading neu-card" style="margin: 20px 0;">
-        <div class="insight-spinner" aria-hidden="true"></div>
-        <p>Generating personalized application pitch, resume highlights & interview questions...</p>
-      </div>
-    `;
-
+    <div class="insight-loading neu-card" style="margin: 20px 0;">
+      <div class="insight-spinner" aria-hidden="true"></div>
+      <p>Generating personalized application pitch, resume highlights & interview questions...</p>
+    </div>
+  `;
     try {
       const langStats = DataProcessor.getLanguageStats(state.languages);
       const strategy = await CareerMatcher.generateAiCareerStrategy(role, {
         profile: state.profile,
         langStats,
-        repos: state.repos,
+        repos: state.repos
       });
-
       content.innerHTML = `
-        <div class="strategy-block">
-          <div class="strategy-block-title">🎯 Recruiter Elevator Pitch</div>
-          <div class="strategy-box">
-            <p>${strategy.elevatorPitch}</p>
-          </div>
+      <div class="strategy-block">
+        <div class="strategy-block-title">\u{1F3AF} Recruiter Elevator Pitch</div>
+        <div class="strategy-box">
+          <p>${strategy.elevatorPitch}</p>
         </div>
+      </div>
 
-        <div class="strategy-block">
-          <div class="strategy-block-title">📄 High-Impact Resume Bullet Points</div>
-          <div class="strategy-box">
-            <ul class="strategy-bullet-list">
-              ${(strategy.resumeBulletPoints || []).map((bp) => `<li>${bp}</li>`).join("")}
-            </ul>
-          </div>
+      <div class="strategy-block">
+        <div class="strategy-block-title">\u{1F4C4} High-Impact Resume Bullet Points</div>
+        <div class="strategy-box">
+          <ul class="strategy-bullet-list">
+            ${(strategy.resumeBulletPoints || []).map((bp) => `<li>${bp}</li>`).join("")}
+          </ul>
         </div>
+      </div>
 
-        <div class="strategy-block">
-          <div class="strategy-block-title">💬 Technical & Behavioral Interview Prep</div>
-          <div class="strategy-box">
-            ${(strategy.interviewQuestions || []).map((iq) => `
-              <div style="margin-bottom: 12px;">
-                <strong style="color: var(--text-primary);">Q: ${iq.q}</strong>
-                <p style="margin-top: 4px; color: var(--text-secondary); font-size: 0.82rem;">💡 <em>Strategy:</em> ${iq.tip}</p>
-              </div>
-            `).join("")}
-          </div>
+      <div class="strategy-block">
+        <div class="strategy-block-title">\u{1F4AC} Technical & Behavioral Interview Prep</div>
+        <div class="strategy-box">
+          ${(strategy.interviewQuestions || []).map((iq) => `
+            <div style="margin-bottom: 12px;">
+              <strong style="color: var(--text-primary);">Q: ${iq.q}</strong>
+              <p style="margin-top: 4px; color: var(--text-secondary); font-size: 0.82rem;">\u{1F4A1} <em>Strategy:</em> ${iq.tip}</p>
+            </div>
+          `).join("")}
         </div>
+      </div>
 
-        <div class="strategy-block" style="margin-bottom: 0;">
-          <div class="strategy-block-title">🚀 Fast-Track Action to Stand Out</div>
-          <div class="strategy-box" style="border-left: 3px solid var(--accent);">
-            <p><strong>${strategy.breakthroughAction}</strong></p>
-          </div>
+      <div class="strategy-block" style="margin-bottom: 0;">
+        <div class="strategy-block-title">\u{1F680} Fast-Track Action to Stand Out</div>
+        <div class="strategy-box" style="border-left: 3px solid var(--accent);">
+          <p><strong>${strategy.breakthroughAction}</strong></p>
         </div>
-      `;
+      </div>
+    `;
     } catch (e) {
       content.innerHTML = `<p style="color: var(--red);">Could not generate strategy at this time. Please try again.</p>`;
     }
   }
-
   function init() {
-    $("btn-career-match")?.addEventListener("click", () => { JobsManager.runJobMatcher(); });
-    $("btn-career-hub")?.addEventListener("click", () => { showSection("career"); });
-    $("btn-career-ideas")?.addEventListener("click", () => { showSection("career"); });
+    $("btn-career-match")?.addEventListener("click", () => {
+      JobsManager.runJobMatcher();
+    });
+    $("btn-career-hub")?.addEventListener("click", () => {
+      showSection("career");
+    });
+    $("btn-repo-ranking")?.addEventListener("click", () => {
+      RankingManager.runRankingAnalysis();
+      $("repo-ranking-container").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    $("close-repo-ranking")?.addEventListener("click", () => {
+      $("repo-ranking-container").style.display = "none";
+    });
+    $("btn-career-ideas")?.addEventListener("click", () => {
+      showSection("career");
+    });
     $("btn-career-ask-ai")?.addEventListener("click", () => {
       ChatEngine.isOpen = false;
       ChatEngine.toggle();
       ChatEngine.sendMessage("Based on my top languages and repositories, what specific software engineering jobs or internships should I apply for, and what portfolio projects will help me get hired?");
     });
-    $("strategy-modal-close")?.addEventListener("click", () => { hideEl($("ai-strategy-modal")); });
-    $("ai-strategy-modal")?.addEventListener("click", (e) => { if (e.target === $("ai-strategy-modal")) hideEl($("ai-strategy-modal")); });
-
+    $("strategy-modal-close")?.addEventListener("click", () => {
+      hideEl($("ai-strategy-modal"));
+    });
+    $("ai-strategy-modal")?.addEventListener("click", (e) => {
+      if (e.target === $("ai-strategy-modal")) hideEl($("ai-strategy-modal"));
+    });
     $("btn-roast")?.addEventListener("click", () => {
       ChatEngine.isOpen = false;
       ChatEngine.toggle();

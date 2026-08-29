@@ -174,6 +174,71 @@ Example:
     }
   },
 
+  async generateRepoRanking(reposSubset) {
+    const apiKey = CONFIG.GEMINI_API_KEY;
+    if (!apiKey || !apiKey.trim()) {
+      return reposSubset.slice(0, 3).map(r => ({
+        repo: r.name,
+        tier: "A",
+        analysis: `Solid ${r.language || 'code'} repository with ${r.stargazers_count} stars.`
+      }));
+    }
+
+    const repoData = reposSubset.map(r => ({
+      name: r.name,
+      language: r.language,
+      stars: r.stargazers_count,
+      sizeKB: Math.round(r.size || 0),
+      forks: r.forks_count,
+      updated_at: r.updated_at
+    }));
+
+    const prompt = `You are a Senior Staff Engineer analyzing a developer's GitHub repositories. 
+Evaluate the following top repositories based on their metrics (stars, size, language, updates) and assign a codebase Tier ranking (S, A, B, or C) to each.
+- S-Tier: Highly impactful, large, popular, or extremely active.
+- A-Tier: Solid projects, good size or decent stars.
+- B-Tier: Standard projects, smaller size.
+- C-Tier: Minor scripts or inactive forks.
+
+Repositories Data:
+${JSON.stringify(repoData, null, 2)}
+
+Return ONLY a JSON array of objects. Each object MUST have:
+- "repo": The exact repository name.
+- "tier": The assigned tier ("S", "A", "B", or "C").
+- "analysis": A 1-2 sentence technical analysis justifying the tier based on the provided metrics.
+
+Example:
+[{"repo": "my-cool-app", "tier": "A", "analysis": "A solid React codebase with good community engagement (15 stars) and active updates."}]`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || 'gemini-3.7-flash'}:generateContent?key=${apiKey.trim()}`;
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, topP: 0.8, maxOutputTokens: 500 },
+    };
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
+      const data = await resp.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      const clean = text.replace(/```json?/gi, '').replace(/```/g, '').trim();
+      return JSON.parse(clean);
+    } catch (e) {
+      console.warn('Repo ranking failed:', e);
+      return reposSubset.slice(0, 3).map(r => ({
+        repo: r.name,
+        tier: "B",
+        analysis: "Unable to generate AI ranking. Standard repository."
+      }));
+    }
+  },
+
   _buildPrompt(d) {
     return `You are a GitHub developer activity analyzer.
 Analyze ONLY the measurable GitHub metrics below. Return a valid JSON array of 7 insight objects.
