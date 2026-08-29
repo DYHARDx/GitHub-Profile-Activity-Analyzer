@@ -115,24 +115,38 @@ export const InsightsEngine = {
     }
   },
 
-  async generateJobs(profile, techStack, languages) {
+  async generateJobs(state) {
     const apiKey = CONFIG.GEMINI_API_KEY;
-    if (!apiKey || !apiKey.trim() || apiKey.startsWith('AQ.')) {
-      return ["Frontend Developer", "Backend Engineer", "Full Stack Developer"];
+    if (!apiKey || !apiKey.trim()) {
+      return [
+        { title: "Frontend Developer", match: "85%", reason: "Solid experience with web technologies." },
+        { title: "Backend Engineer", match: "80%", reason: "Experience building server-side applications." },
+        { title: "Full Stack Developer", match: "90%", reason: "Balanced contributions across the stack." }
+      ];
     }
 
-    const langNames = Object.keys(languages || {}).slice(0, 5).join(', ');
-    const stack = (techStack || []).join(', ');
-    const loc = profile?.location || 'Remote';
+    const langNames = Object.keys(state.languages || {}).slice(0, 5).join(', ');
+    const stack = (state.techStack || []).join(', ');
+    const loc = state.profile?.location || 'Remote';
+    const repos = state.profile?.public_repos || 0;
+    const isSenior = repos > 30 ? "Senior" : repos > 10 ? "Mid-level" : "Junior";
     
     const prompt = `Based on the following developer profile, suggest exactly 3 specific job titles or roles they are highly suited for. 
-Keep the titles concise and professional (e.g. "React Frontend Developer", "Senior Python Engineer", "DevOps Intern").
+Consider their experience level as roughly "${isSenior}" based on their public activity (${repos} public repos).
+CRITICAL: The job titles MUST explicitly include their specific detected technologies (e.g. if they have React and Node.js, suggest "Senior React Developer" or "Node.js Backend Engineer").
+Keep the titles concise and professional.
+
 Profile Location: ${loc}
 Top Languages: ${langNames}
 Detected Frameworks/Tools: ${stack}
 
-Return ONLY a JSON array of strings. No markdown, no explanation.
-Example: ["Role 1", "Role 2", "Role 3"]`;
+Return ONLY a JSON array of objects, with no markdown formatting or extra text. Each object must have:
+- "title": The specific job title
+- "match": A realistic match percentage string (e.g. "95%")
+- "reason": A short 1-sentence explanation of why they fit this role based on their tech stack.
+
+Example:
+[{"title": "Senior React Developer", "match": "98%", "reason": "Your extensive use of React and Tailwind makes you a perfect fit."}]`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || 'gemini-3.7-flash'}:generateContent?key=${apiKey.trim()}`;
     const body = {
@@ -153,10 +167,10 @@ Example: ["Role 1", "Role 2", "Role 3"]`;
       const clean = text.replace(/```json?/gi, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(clean);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
-      return ["Software Engineer", "Frontend Developer", "Backend Engineer"];
+      return [{ title: "Software Engineer", match: "80%", reason: "General software development experience." }];
     } catch (e) {
       console.warn('Job generation failed:', e);
-      return ["Software Engineer", "Frontend Developer", "Backend Engineer"];
+      return [{ title: "Software Engineer", match: "80%", reason: "General software development experience." }];
     }
   },
 

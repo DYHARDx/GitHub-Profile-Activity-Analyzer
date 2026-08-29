@@ -18,7 +18,7 @@ export const JobsManager = {
     `;
     
     try {
-      const roles = await InsightsEngine.generateJobs(state.profile, state.techStack, state.languages);
+      const roles = await InsightsEngine.generateJobs(state);
       
       if (!roles || roles.length === 0) {
         list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px;">No specific matches found. Keep building!</div>`;
@@ -27,16 +27,24 @@ export const JobsManager = {
       
       let loc = state.profile.location || 'Remote';
       
-      list.innerHTML = roles.map(role => {
-        const query = encodeURIComponent(`${role} jobs in ${loc}`);
-        const linkedInQuery = encodeURIComponent(role);
+      list.innerHTML = roles.map(roleObj => {
+        const title = roleObj.title || roleObj;
+        const match = roleObj.match || "High Match";
+        const reason = roleObj.reason || "";
+        
+        const query = encodeURIComponent(`${title} jobs in ${loc}`);
+        const linkedInQuery = encodeURIComponent(title);
         const linkedInLoc = encodeURIComponent(loc);
         
         return `
           <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-            <div style="display: flex; flex-direction: column;">
-              <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(role)}</span>
-              <span style="font-size: 0.8rem; opacity: 0.7;">📍 ${escapeHtml(loc)} / Remote</span>
+            <div style="display: flex; flex-direction: column; max-width: 65%;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(title)}</span>
+                <span style="font-size: 0.7rem; background: rgba(56, 201, 122, 0.2); color: #38c97a; padding: 2px 6px; border-radius: 4px;">${escapeHtml(match)}</span>
+              </div>
+              <span style="font-size: 0.8rem; opacity: 0.7; margin-top: 2px;">📍 ${escapeHtml(loc)} / Remote</span>
+              ${reason ? `<span style="font-size: 0.75rem; opacity: 0.8; margin-top: 6px; font-style: italic;">${escapeHtml(reason)}</span>` : ''}
             </div>
             <div style="display: flex; gap: 8px;">
               <a href="https://www.google.com/search?q=${query}&ibp=htl;jobs" target="_blank" rel="noopener noreferrer" style="background: white; color: #1a1a1a; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
