@@ -6,7 +6,7 @@ import { ThemeManager } from './theme.js';
 import { ExportManager } from './export.js';
 import { ChatEngine } from './chat.js';
 import { ResumeManager } from './resume.js';
-import { BattlesManager } from './battles.js';
+
 import { ApiClient, InsightsEngine } from './api.js';
 import { DataProcessor } from './data.js';
 import {
@@ -36,7 +36,19 @@ function showSection(name) {
 
   const sec = $(`section-${name}`);
   const btn = document.querySelector(`.nav-item[data-section="${name}"]`);
-  if (sec) { sec.hidden = false; sec.classList.add('active'); }
+  if (sec) { 
+    sec.hidden = false; 
+    sec.classList.add('active'); 
+    
+    if (name === 'activity') {
+      const scrollEl = document.querySelector('.heatmap-scroll');
+      if (scrollEl) {
+        setTimeout(() => {
+          scrollEl.scrollLeft = scrollEl.scrollWidth;
+        }, 10);
+      }
+    }
+  }
   if (btn) btn.classList.add('active');
 }
 
@@ -98,93 +110,194 @@ async function analyzeProfile(rawUsername) {
 
   try {
     setStep('profile');
-    setStatus('Fetching profile info...');
-    state.profile = await ApiClient.get(`/users/${encodeURIComponent(username)}`);
+    setStatus('Fetching comprehensive profile data via GraphQL...');
+    
+    const query = `
+      query($login: String!) {
+        user(login: $login) {
+          name
+          login
+          avatarUrl
+          bio
+          location
+          company
+          websiteUrl
+          createdAt
+          url
+          followers { totalCount }
+          following { totalCount }
+          repositories(first: 100, ownerAffiliations: OWNER, orderBy: {field: PUSHED_AT, direction: DESC}) {
+            totalCount
+            nodes {
+              name
+              description
+              stargazerCount
+              forkCount
+              isFork
+              pushedAt
+              createdAt
+              url
+              diskUsage
+              primaryLanguage {
+                name
+              }
+              languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+                edges {
+                  size
+                  node {
+                    name
+                  }
+                }
+              }
+            }
+          }
+          contributionsCollection {
+            contributionYears
+          }
+        }
+      }
+    `;
+    
+    const gqlData = await ApiClient.graphql(query, { login: username });
+    if (!gqlData || !gqlData.user) throw new AppError('not_found');
+    const u = gqlData.user;
+    
+    state.profile = {
+      login: u.login,
+      name: u.name,
+      avatar_url: u.avatarUrl,
+      bio: u.bio,
+      location: u.location,
+      company: u.company,
+      blog: u.websiteUrl,
+      created_at: u.createdAt,
+      html_url: u.url,
+      public_repos: u.repositories?.totalCount || 0,
+      followers: u.followers?.totalCount || 0,
+      following: u.following?.totalCount || 0,
+    };
     setStep('profile', true);
 
-    const actualLogin = state.profile.login || username;
+    const actualLogin = u.login;
 
     setStep('repos');
-    setStatus('Loading repository portfolio...');
-    const rawRepos = await ApiClient.getPages(
-      `/users/${encodeURIComponent(actualLogin)}/repos?sort=pushed&type=all`,
-      Math.ceil(CONFIG.MAX_REPOS / 100)
-    );
-    state.repos = DataProcessor.processRepos(rawRepos);
+    setStatus('Processing repositories...');
+    const rawRepos = u.repositories?.nodes || [];
+    state.repos = rawRepos.map(r => ({
+      name: r.name,
+      fullName: `${u.login}/${r.name}`,
+      description: r.description || '',
+      language: r.primaryLanguage?.name || null,
+      stars: r.stargazerCount || 0,
+      forks: r.forkCount || 0,
+      issues: 0,
+      updatedAt: new Date(r.pushedAt || r.createdAt),
+      createdAt: new Date(r.createdAt),
+      url: r.url,
+      fork: r.isFork,
+      size: r.diskUsage || 0,
+      _languages: r.languages?.edges || []
+    }));
     setStep('repos', true);
 
     setStep('languages');
     setStatus('Aggregating languages & code stats...');
-    const nonForkRepos = state.repos.filter(r => !r.fork);
-    const langCandidates = (nonForkRepos.length > 0 ? nonForkRepos : state.repos).slice(0, 10);
-
-    const langPromises = langCandidates.map(r =>
-      ApiClient.get(`/repos/${encodeURIComponent(r.fullName)}/languages`)
-        .then(data => ({ repo: r.name, data }))
-        .catch(() => ({ repo: r.name, data: {} }))
-    );
-    const langResults = await Promise.all(langPromises);
-    state.languages = DataProcessor.aggregateLanguages(langResults);
+    const langMap = {};
     state.repos.forEach(r => {
-      if (r.language && !state.languages[r.language]) {
-        state.languages[r.language] = {
-          bytes: Math.max(1024, (r.size || 10) * 1024),
-          repoCount: 1,
-          repos: [r.name],
-        };
-      }
+      if (r.fork) return;
+      r._languages.forEach(edge => {
+        const langName = edge.node.name;
+        const bytes = edge.size;
+        if (!langMap[langName]) {
+          langMap[langName] = { bytes: 0, repoCount: 0, repos: [] };
+        }
+        langMap[langName].bytes += bytes;
+        langMap[langName].repoCount++;
+        langMap[langName].repos.push(r.name);
+      });
     });
+    state.languages = langMap;
     setStep('languages', true);
 
     setStep('activity');
     setStatus('Analyzing commit activity & streak metrics...');
-    const topRepos = [...state.repos]
-      .sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.updatedAt || 0) - (a.updatedAt || 0))
-      .slice(0, CONFIG.COMMIT_REPOS);
-    const commitPromises = topRepos.map(r =>
-      ApiClient.get(`/repos/${encodeURIComponent(r.fullName)}/commits?per_page=${CONFIG.COMMITS_PER_REPO}`)
-        .then(data => Array.isArray(data) ? data.map(c => ({ ...c, _repo: r.name })) : [])
-        .catch(() => [])
-    );
-    const eventsPromise = ApiClient.get(`/users/${encodeURIComponent(actualLogin)}/events/public?per_page=100`)
-      .then(events => {
-        if (!Array.isArray(events)) return [];
-        const extracted = [];
-        events.forEach(ev => {
-          if (ev.type === 'PushEvent' && ev.payload?.commits) {
-            ev.payload.commits.forEach(pc => {
-              extracted.push({
-                sha: pc.sha,
-                commit: { author: { date: ev.created_at } },
-                _repo: ev.repo?.name ? ev.repo.name.split('/')[1] || ev.repo.name : '',
-              });
-            });
-          } else if (ev.created_at) {
+    
+    const years = u.contributionsCollection?.contributionYears || [];
+    if (years.length > 0) {
+      setStatus('Fetching lifetime contribution data...');
+      let lifetimeQuery = `query($login: String!) { user(login: $login) { `;
+      const currentYear = new Date().getFullYear();
+      years.forEach(year => {
+        const from = `${year}-01-01T00:00:00Z`;
+        const to = year === currentYear ? new Date().toISOString() : `${year}-12-31T23:59:59Z`;
+        lifetimeQuery += `
+          year${year}: contributionsCollection(from: "${from}", to: "${to}") {
+            contributionCalendar {
+              totalContributions
+              weeks {
+                contributionDays {
+                  contributionCount
+                  date
+                }
+              }
+            }
+          }
+        `;
+      });
+      lifetimeQuery += ` } }`;
+      
+      const lifetimeData = await ApiClient.graphql(lifetimeQuery, { login: username });
+      if (lifetimeData && lifetimeData.user) {
+        let totalContributions = 0;
+        let allWeeks = [];
+        
+        const sortedYears = [...years].sort((a, b) => a - b);
+        sortedYears.forEach(year => {
+          const cal = lifetimeData.user[`year${year}`]?.contributionCalendar;
+          if (cal) {
+            totalContributions += cal.totalContributions;
+            allWeeks = allWeeks.concat(cal.weeks);
+          }
+        });
+        
+        state.contributionCalendar = {
+          totalContributions,
+          weeks: allWeeks
+        };
+      }
+    } else {
+      state.contributionCalendar = { totalContributions: 0, weeks: [] };
+    }
+    const events = await ApiClient.get(`/users/${encodeURIComponent(actualLogin)}/events/public?per_page=100`).catch(() => []);
+    const extracted = [];
+    if (Array.isArray(events)) {
+      events.forEach(ev => {
+        if (ev.type === 'PushEvent' && ev.payload?.commits) {
+          ev.payload.commits.forEach(pc => {
             extracted.push({
-              sha: ev.id,
+              sha: pc.sha,
               commit: { author: { date: ev.created_at } },
               _repo: ev.repo?.name ? ev.repo.name.split('/')[1] || ev.repo.name : '',
             });
-          }
-        });
-        return extracted;
-      })
-      .catch(() => []);
-
-    const [rawCommitsArrays, eventCommits] = await Promise.all([
-      Promise.all(commitPromises),
-      eventsPromise,
-    ]);
-
-    const allRawCommits = [...rawCommitsArrays.flat(), ...eventCommits];
-    state.commits = DataProcessor.parseCommits(allRawCommits);
+          });
+        } else if (ev.created_at) {
+          extracted.push({
+            sha: ev.id,
+            commit: { author: { date: ev.created_at } },
+            _repo: ev.repo?.name ? ev.repo.name.split('/')[1] || ev.repo.name : '',
+          });
+        }
+      });
+    }
+    
+    state.commits = DataProcessor.parseCommits(extracted);
     setStep('activity', true);
 
     setStep('insights');
     setStatus('Generating developer intelligence insights...');
     const langStats = DataProcessor.getLanguageStats(state.languages);
-    const stats = DataProcessor.computeStats(state.profile, state.repos, state.commits);
-    const streaks = DataProcessor.calculateStreaks(state.commits);
+    const stats = DataProcessor.computeStats(state.profile, state.repos, state.contributionCalendar);
+    const streaks = DataProcessor.calculateStreaks(state.contributionCalendar);
     const scoreData = DataProcessor.calculateScore({
       repos: state.repos,
       commits: state.commits,
@@ -200,7 +313,7 @@ async function analyzeProfile(rawUsername) {
       totalRepos: stats.totalRepos,
       totalStars: stats.totalStars,
       totalForks: stats.totalForks,
-      totalCommits: state.commits.length,
+      totalCommits: state.contributionCalendar?.totalContributions || 0,
       currentStreak: streaks.current,
       longestStreak: streaks.longest,
       activeDays: streaks.totalActive,
@@ -218,7 +331,7 @@ async function analyzeProfile(rawUsername) {
     renderStats(stats);
     renderScore(scoreData);
     renderStreakMini(streaks);
-    renderActivity(state.commits, state.period);
+    renderActivity(state.contributionCalendar, state.commits, state.period);
     renderRepoHighlights();
     renderRepositories();
     renderLanguages(langStats);
@@ -240,14 +353,14 @@ async function analyzeProfile(rawUsername) {
 }
 
 function init() {
-  btn-roast?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.'); });
-  btn-career-pred?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.'); });
+  $('btn-roast')?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.'); });
+  $('btn-career-pred')?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.'); });
 
-  btn-resume?.addEventListener('click', () => { ResumeManager.generate(); });
+  $('btn-resume')?.addEventListener('click', () => { ResumeManager.generate(); });
   ThemeManager.init();
   ExportManager.init();
   ChatEngine.init();
-    BattlesManager.init();
+
   initNavigation();
   updateRecentSearchesUI();
 
@@ -346,15 +459,32 @@ function init() {
 
   $('sidebar-overlay')?.addEventListener('click', closeSidebar);
 
+  $('desktop-sidebar-toggle')?.addEventListener('click', () => {
+    $('sidebar')?.classList.toggle('collapsed');
+    $('main-content')?.classList.toggle('expanded');
+    const topbar = $('desktop-topbar');
+    if (topbar) topbar.style.display = 'none';
+  });
+
+  $('close-sidebar-btn')?.addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      closeSidebar();
+    } else {
+      $('sidebar')?.classList.add('collapsed');
+      $('main-content')?.classList.add('expanded');
+      const topbar = $('desktop-topbar');
+      if (topbar) topbar.style.display = 'flex';
+    }
+  });
+
+  $('sidebar-new-search')?.addEventListener('click', resetToLanding);
+
   hideEl($('dashboard'));
   hideEl($('loading-screen'));
   hideEl($('error-banner'));
 }
 
-btn-roast?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.'); });
-  btn-career-pred?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.'); });
 
-  btn-resume?.addEventListener('click', () => { ResumeManager.generate(); });
 
 document.addEventListener('DOMContentLoaded', init);
 

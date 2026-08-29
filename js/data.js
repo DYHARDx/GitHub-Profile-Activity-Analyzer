@@ -83,11 +83,19 @@ export const DataProcessor = {
       .filter(Boolean);
   },
 
-  calculateStreaks(commits) {
-    if (!Array.isArray(commits) || commits.length === 0) {
+  calculateStreaks(calendar) {
+    if (!calendar || !calendar.weeks) {
       return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
     }
-    const dateSets = [...new Set(commits.map(c => c.dateStr).filter(Boolean))].sort();
+    
+    const activeDates = [];
+    calendar.weeks.forEach(w => {
+      w.contributionDays.forEach(d => {
+        if (d.contributionCount > 0) activeDates.push(d.date);
+      });
+    });
+    
+    const dateSets = [...new Set(activeDates)].sort();
     if (dateSets.length === 0) {
       return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
     }
@@ -136,13 +144,17 @@ export const DataProcessor = {
     };
   },
 
-  activityByDay(commits) {
+  activityByDay(calendar) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const counts = Array(7).fill(0);
-    commits.forEach(c => {
-      if (c && typeof c.day === 'number' && c.day >= 0 && c.day < 7) {
-        counts[c.day]++;
-      }
+    if (!calendar || !calendar.weeks) return days.map((name, i) => ({ name, count: 0 }));
+    
+    calendar.weeks.forEach(w => {
+      w.contributionDays.forEach(d => {
+        const date = new Date(d.date + 'T00:00:00Z');
+        const dayIdx = date.getUTCDay();
+        counts[dayIdx] += d.contributionCount;
+      });
     });
     return days.map((name, i) => ({ name, count: counts[i] }));
   },
@@ -165,12 +177,18 @@ export const DataProcessor = {
     return slots;
   },
 
-  monthlyCommits(commits) {
+  monthlyCommits(calendar) {
     const map = {};
-    commits.forEach(c => {
-      if (c && c.month) {
-        map[c.month] = (map[c.month] || 0) + 1;
-      }
+    if (!calendar || !calendar.weeks) return [];
+    
+    calendar.weeks.forEach(w => {
+      w.contributionDays.forEach(d => {
+        const date = new Date(d.date + 'T00:00:00Z');
+        const y = date.getUTCFullYear();
+        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const monthStr = `${y}-${m}`;
+        map[monthStr] = (map[monthStr] || 0) + d.contributionCount;
+      });
     });
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -224,7 +242,7 @@ export const DataProcessor = {
     return commits.filter(c => c.date && c.date.getTime() >= cutoff);
   },
 
-  computeStats(profile, repos, commits) {
+  computeStats(profile, repos, calendar) {
     const totalStars = repos.reduce((s, r) => s + (r.stars || 0), 0);
     const totalForks = repos.reduce((s, r) => s + (r.forks || 0), 0);
     const totalIssues = repos.reduce((s, r) => s + (r.issues || 0), 0);
@@ -232,7 +250,7 @@ export const DataProcessor = {
       totalRepos: profile.public_repos || repos.length,
       totalStars,
       totalForks,
-      totalCommits: commits.length,
+      totalCommits: calendar ? calendar.totalContributions : 0,
       followers: profile.followers || 0,
       following: profile.following || 0,
       totalIssues,

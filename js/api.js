@@ -57,6 +57,32 @@ export const ApiClient = {
     }
     return results;
   },
+
+  async graphql(query, variables = {}) {
+    const url = 'https://api.github.com/graphql';
+    
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: this._headers(),
+        body: JSON.stringify({ query, variables })
+      });
+    } catch (networkErr) {
+      throw new AppError('network_error', networkErr.message);
+    }
+
+    if (resp.status === 401) throw new AppError('invalid_token');
+    if (resp.status === 403) throw new AppError('rate_limit');
+    if (!resp.ok) throw new AppError('api_error', resp.status);
+    
+    const data = await resp.json();
+    if (data.errors) {
+      console.error('GraphQL Errors:', data.errors);
+      throw new AppError('api_error', data.errors[0].message);
+    }
+    return data.data;
+  },
 };
 
 export const InsightsEngine = {
@@ -67,7 +93,7 @@ export const InsightsEngine = {
     }
 
     const prompt = this._buildPrompt(analysisData);
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey.trim()}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || 'gemini-3.7-flash'}:generateContent?key=${apiKey.trim()}`;
     const body = {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 1200 },

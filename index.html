@@ -13,7 +13,6 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
-  <script src="html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -109,92 +108,59 @@
   </div>
 
   <div id="dashboard" class="dashboard" hidden>
-
-    <aside class="sidebar" id="sidebar" aria-label="Navigation sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logo" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="#5b6af0" />
-            <path
-              d="M24 8C15.163 8 8 15.163 8 24c0 7.074 4.584 13.072 10.944 15.185.8.147 1.092-.347 1.092-.771 0-.38-.014-1.386-.022-2.72-4.451.967-5.39-2.146-5.39-2.146-.728-1.849-1.776-2.341-1.776-2.341-1.452-.992.11-.972.11-.972 1.606.113 2.452 1.649 2.452 1.649 1.426 2.444 3.742 1.738 4.654 1.329.145-1.033.558-1.738 1.016-2.138-3.554-.404-7.29-1.777-7.29-7.908 0-1.747.624-3.175 1.648-4.295-.165-.405-.714-2.031.156-4.234 0 0 1.344-.43 4.401 1.64A15.31 15.31 0 0 1 24 14.52c1.36.006 2.728.184 4.009.538 3.055-2.07 4.397-1.64 4.397-1.64.872 2.203.323 3.829.158 4.234 1.027 1.12 1.646 2.548 1.646 4.295 0 6.147-3.742 7.5-7.306 7.895.574.494 1.085 1.469 1.085 2.961 0 2.138-.02 3.862-.02 4.388 0 .428.288.925 1.1.769C35.42 37.068 40 31.072 40 24c0-8.837-7.163-16-16-16z"
-              fill="white" />
-          </svg>
+    
+    <aside class="sidebar" id="sidebar" aria-label="Main Navigation">
+      <div class="sidebar-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="landing-logo" style="width: 28px; height: 28px;">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="48" height="48" rx="14" fill="var(--accent)" class="logo-bg" />
+              <path d="M24 8C15.163 8 8 15.163 8 24c0 7.074 4.584 13.072 10.944 15.185.8.147 1.092-.347 1.092-.771 0-.38-.014-1.386-.022-2.72-4.451.967-5.39-2.146-5.39-2.146-.728-1.849-1.776-2.341-1.776-2.341-1.452-.992.11-.972.11-.972 1.606.113 2.452 1.649 2.452 1.649 1.426 2.444 3.742 1.738 4.654 1.329.145-1.033.558-1.738 1.016-2.138-3.554-.404-7.29-1.777-7.29-7.908 0-1.747.624-3.175 1.648-4.295-.165-.405-.714-2.031.156-4.234 0 0 1.344-.43 4.401 1.64A15.31 15.31 0 0 1 24 14.52c1.36.006 2.728.184 4.009.538 3.055-2.07 4.397-1.64 4.397-1.64.872 2.203.323 3.829.158 4.234 1.027 1.12 1.646 2.548 1.646 4.295 0 6.147-3.742 7.5-7.306 7.895.574.494 1.085 1.469 1.085 2.961 0 2.138-.02 3.862-.02 4.388 0 .428.288.925 1.1.769C35.42 37.068 40 31.072 40 24c0-8.837-7.163-16-16-16z" fill="white" />
+            </svg>
+          </div>
+          <span class="sidebar-brand">GH Analyzer</span>
         </div>
-        <span class="sidebar-brand">GH Analyzer</span>
+        <button id="close-sidebar-btn" class="icon-btn" aria-label="Close Sidebar" style="width: 32px; height: 32px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
       </div>
-
-      <nav class="sidebar-nav" aria-label="Dashboard sections">
-        <button class="nav-item active" data-section="overview" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-          </svg>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="overview" aria-label="Overview">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           <span>Overview</span>
         </button>
-        <button class="nav-item" data-section="activity" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
+        <button class="nav-item" data-section="activity" aria-label="Activity">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
           <span>Activity</span>
         </button>
-        <button class="nav-item" data-section="repositories" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <path d="M3 3h18v18H3zM3 9h18M9 21V9" />
-          </svg>
+        <button class="nav-item" data-section="repositories" aria-label="Repositories">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
           <span>Repositories</span>
         </button>
-        <button class="nav-item" data-section="languages" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <polyline points="16 18 22 12 16 6" />
-            <polyline points="8 6 2 12 8 18" />
-          </svg>
+        <button class="nav-item" data-section="languages" aria-label="Languages">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
           <span>Languages</span>
         </button>
-        <button class="nav-item" data-section="insights" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-          </svg>
+        <button class="nav-item" data-section="insights" aria-label="Insights">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12h4l3-9 5 18 3-9h5"></path></svg>
           <span>Insights</span>
         </button>
       </nav>
-
       <div class="sidebar-footer">
-
-        <button id="new-search-btn" class="neu-button secondary small" type="button">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          New Search
+        <button id="sidebar-new-search" class="neu-button" style="width: 100%; justify-content: flex-start; background: var(--bg); border: 1px solid var(--shadow-dark); box-shadow: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <span class="btn-text">New Search</span>
         </button>
       </div>
     </aside>
 
-    <div class="mobile-topbar">
-      <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle navigation"
-        aria-expanded="false" aria-controls="sidebar">
-        <span class="hamburger"></span>
-        <span class="hamburger"></span>
-        <span class="hamburger"></span>
-      </button>
-      <span class="mobile-brand">GH Analyzer</span>
-      <button id="mobile-new-search" class="icon-btn" type="button" aria-label="New search">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" />
-        </svg>
-      </button>
-    </div>
 
     <main class="main-content" id="main-content">
+      <div id="desktop-topbar" style="margin-bottom: 20px; display: none;">
+        <button id="desktop-sidebar-toggle" class="icon-btn" aria-label="Toggle Sidebar" style="background: var(--surface);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
 
       <section class="content-section active" id="section-overview" aria-labelledby="overview-heading">
 
@@ -226,10 +192,7 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
           <h2 id="overview-heading" class="section-heading" style="margin-bottom: 0;">Analytics Overview</h2>
-          <button id="btn-resume" class="neu-button primary small" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Generate Resume</button>`n          <button id="export-btn" class="neu-button secondary small" type="button">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Export Stats
-          </button>
+          <button id="btn-resume" class="neu-button primary small" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Generate Resume</button>
         </div>
         <div class="stats-grid" id="stats-grid" role="list" aria-label="GitHub statistics"></div>
 
@@ -269,17 +232,10 @@
 
       </section>
 
-      <section class="content-section" id="section-activity" aria-labelledby="activity-heading" hidden>
+      <section class="content-section" id="section-activity" aria-labelledby="activity-heading">
         <h2 id="activity-heading" class="section-heading">Commit Activity</h2>
 
-        <div class="period-selector neu-inset" role="group" aria-label="Select time period">
-          <button class="period-btn" data-period="7" type="button">7 Days</button>
-          <button class="period-btn" data-period="30" type="button">30 Days</button>
-          <button class="period-btn" data-period="90" type="button">3 Months</button>
-          <button class="period-btn" data-period="180" type="button">6 Months</button>
-          <button class="period-btn" data-period="365" type="button">1 Year</button>
-          <button class="period-btn active" data-period="all" type="button">All</button>
-        </div>
+
 
         <div class="activity-summary" id="activity-summary" role="list"></div>
 
@@ -326,7 +282,7 @@
         </div>
       </section>
 
-      <section class="content-section" id="section-repositories" aria-labelledby="repos-heading" hidden>
+      <section class="content-section" id="section-repositories" aria-labelledby="repos-heading">
         <h2 id="repos-heading" class="section-heading">Repository Analytics</h2>
         <div class="repo-highlights" id="repo-highlights"></div>
 
@@ -373,7 +329,7 @@
         <div class="pagination" id="repo-pagination" role="navigation" aria-label="Repository pages"></div>
       </section>
 
-      <section class="content-section" id="section-languages" aria-labelledby="langs-heading" hidden>
+      <section class="content-section" id="section-languages" aria-labelledby="langs-heading">
         <h2 id="langs-heading" class="section-heading">Language Analytics</h2>
         <div class="languages-layout">
           <div class="donut-card neu-card">
@@ -410,7 +366,7 @@
         </div>
       </section>
 
-      <section class="content-section" id="section-insights" aria-labelledby="insights-heading" hidden>
+      <section class="content-section" id="section-insights" aria-labelledby="insights-heading">
         <h2 id="insights-heading" class="section-heading">Developer Insights</h2>
         <p class="insights-disclaimer">Insights are derived from measured GitHub activity data only. No subjective
           claims are made about ability, intelligence, or career.</p>
@@ -424,7 +380,8 @@
             <p>Generating insights from activity data...</p>
           </div>
         </div>
-      <section class="content-section" id="section-battles" aria-labelledby="battles-heading" hidden>`n        <h2 id="battles-heading" class="section-heading">GitHub Battles ??</h2>`n        <p class="insights-disclaimer">Pit two developers against each other to see who has the stronger GitHub presence.</p>`n        <div class="search-container neu-card" style="margin-bottom: 30px;">`n          <div class="search-input-wrapper neu-inset">`n            <input type="text" id="battle-opponent-input" class="neu-input" placeholder="Enter Opponent's Username..." autocomplete="off" spellcheck="false" />`n          </div>`n          <button id="btn-fight" class="neu-button primary" type="button" style="background: linear-gradient(135deg, #ff4757, #ff6b81);">`n            <span class="btn-text">FIGHT!</span>`n          </button>`n        </div>`n        <div id="battle-arena" style="display:none; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; text-align: center;">`n          <div id="fighter1" class="neu-card" style="padding: 20px;"></div>`n          <div id="fighter2" class="neu-card" style="padding: 20px;"></div>`n        </div>`n        <div id="battle-results" class="neu-card" style="display:none; margin-top: 30px; text-align: center; padding: 30px; background: linear-gradient(135deg, #2b5876, #4e4376); color: white;"></div>`n      </section>`n</section>
+      </section>
+
 
     </main>
   </div>
@@ -459,7 +416,7 @@
 
   <script src="env.js"></script>
   <script src="script.js"></script>
-<div id="share-card" style="position:absolute; left:-9999px; width:400px; padding:20px; background:linear-gradient(135deg, #2b5876 0%, #4e4376 100%); color:white; border-radius:15px; font-family:Inter; text-align:center;">`n<h2 id="sc-name" style="margin:0 0 10px 0; font-size:24px;">Name</h2>`n<p id="sc-login" style="margin:0; opacity:0.8;">@username</p>`n<hr style="border:1px solid rgba(255,255,255,0.2); margin:15px 0;" />`n<div style="display:flex; justify-content:space-between; font-size:18px;"><span>Commits</span><strong id="sc-commits">0</strong></div>`n<div style="display:flex; justify-content:space-between; font-size:18px; margin-top:10px;"><span>Repositories</span><strong id="sc-repos">0</strong></div>`n<div style="display:flex; justify-content:space-between; font-size:18px; margin-top:10px;"><span>Languages</span><strong id="sc-langs">0</strong></div>`n<div style="margin-top:20px; font-size:12px; opacity:0.5;">Generated by GH Analyzer</div>`n</div>`n</body>
+</body>
 
 </html>
 

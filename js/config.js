@@ -3,10 +3,10 @@ export const CONFIG = {
   GITHUB_API: 'https://api.github.com',
 
   GEMINI_API_KEY: (window.ENV && window.ENV.GEMINI_API_KEY) || '',
-  GEMINI_MODEL: 'gemini-1.5-flash',
+  GEMINI_MODEL: 'gemini-3.7-flash',
 
-  MAX_REPOS: 100,
-  COMMIT_REPOS: 10,
+  MAX_REPOS: 150,
+  COMMIT_REPOS: 25,
   COMMITS_PER_REPO: 100,
   REPOS_PER_PAGE: 15,
 };

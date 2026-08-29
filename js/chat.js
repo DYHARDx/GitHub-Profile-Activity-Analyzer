@@ -97,7 +97,7 @@ export const ChatEngine = {
       }, 500);
       return;
     }
-
+    
     const loaderId = Date.now();
     this.history.push({ role: 'model', parts: [{ text: '<div class="chat-typing">Typing<span>.</span><span>.</span><span>.</span></div>' }], _id: loaderId });
     this._renderMessages();
@@ -119,18 +119,36 @@ Answer the user's question concisely based on this data. Offer actionable career
         ...this.history.filter(m => !m._id)
       ];
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey.trim()}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || 'gemini-3.7-flash'}:generateContent`;
       
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: messages,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
-        })
-      });
+      let resp;
+      let retries = 3;
+      while (retries > 0) {
+        resp = await fetch(url, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-goog-api-key': apiKey.trim()
+          },
+          body: JSON.stringify({
+            contents: messages,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
+          })
+        });
 
-      if (!resp.ok) throw new Error('API Error');
+        if (resp.status === 503 && retries > 1) {
+          retries--;
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          console.error("Gemini API Error:", resp.status, errorText);
+          throw new Error('API Error: ' + resp.status + ' ' + errorText);
+        }
+        break;
+      }
       const data = await resp.json();
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't process that.";
       
@@ -140,7 +158,7 @@ Answer the user's question concisely based on this data. Offer actionable career
 
     } catch (e) {
       this.history = this.history.filter(m => m._id !== loaderId);
-      this.addSystemMessage("❌ Sorry, I encountered an error communicating with the AI. Please check your API key and connection.");
+      this.addSystemMessage(`❌ Error: ${e.message}`);
       console.error(e);
     }
   }

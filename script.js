@@ -66,9 +66,9 @@
     GITHUB_TOKEN: window.ENV && window.ENV.GITHUB_TOKEN || "",
     GITHUB_API: "https://api.github.com",
     GEMINI_API_KEY: window.ENV && window.ENV.GEMINI_API_KEY || "",
-    GEMINI_MODEL: "gemini-1.5-flash",
-    MAX_REPOS: 100,
-    COMMIT_REPOS: 10,
+    GEMINI_MODEL: "gemini-3.7-flash",
+    MAX_REPOS: 150,
+    COMMIT_REPOS: 25,
     COMMITS_PER_REPO: 100,
     REPOS_PER_PAGE: 15
   };
@@ -221,22 +221,34 @@
         alert("Export library is still loading or failed to load. Please try again in a moment.");
         return;
       }
+      if (!state.profile) {
+        alert("Please analyze a profile first!");
+        return;
+      }
       const btn = document.getElementById("export-btn");
       const originalText = btn.innerHTML;
       btn.innerHTML = `<span class="btn-text">Exporting...</span>`;
       btn.disabled = true;
       try {
-        const target = document.getElementById("section-overview");
-        const canvas = await html2canvas(target, {
-          backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
-          scale: 2,
-          // Higher resolution
+        const card = document.getElementById("share-card");
+        document.getElementById("sc-name").textContent = state.profile.name || state.profile.login;
+        document.getElementById("sc-login").textContent = "@" + state.profile.login;
+        document.getElementById("sc-commits").textContent = state.commits.length;
+        document.getElementById("sc-repos").textContent = state.repos.length;
+        document.getElementById("sc-langs").textContent = Object.keys(state.languages).length;
+        card.style.left = "-9999px";
+        card.style.display = "block";
+        const canvas = await html2canvas(card, {
+          backgroundColor: "#2b5876",
+          // Base gradient color
+          scale: 3,
           useCORS: true
         });
+        card.style.display = "none";
         const imgData = canvas.toDataURL("image/png");
         const a = document.createElement("a");
         a.href = imgData;
-        a.download = `github_stats_${document.getElementById("profile-username").textContent || "export"}.png`;
+        a.download = `trading_card_${state.profile.login || "export"}.png`;
         a.click();
       } catch (err) {
         console.error("Export failed:", err);
@@ -320,7 +332,7 @@
     async sendMessage(text) {
       this.addUserMessage(text);
       const apiKey = CONFIG.GEMINI_API_KEY;
-      if (!apiKey || !apiKey.trim() ) {
+      if (!apiKey || !apiKey.trim()) {
         setTimeout(() => {
           this.addSystemMessage("\u26A0\uFE0F **API Key Required**<br>Please add a valid Google Gemini API Key in `env.js` to enable the AI Chat Assistant.");
         }, 500);
@@ -344,30 +356,150 @@ Answer the user's question concisely based on this data. Offer actionable career
           { role: "model", parts: [{ text: "Understood. I will help the user based on this profile." }] },
           ...this.history.filter((m) => !m._id)
         ];
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey.trim()}`;
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: messages,
-            generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
-          })
-        });
-        if (!resp.ok) throw new Error("API Error");
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent`;
+        let resp;
+        let retries = 3;
+        while (retries > 0) {
+          resp = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-goog-api-key": apiKey.trim()
+            },
+            body: JSON.stringify({
+              contents: messages,
+              generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
+            })
+          });
+          if (resp.status === 503 && retries > 1) {
+            retries--;
+            await new Promise((r) => setTimeout(r, 2e3));
+            continue;
+          }
+          if (!resp.ok) {
+            const errorText = await resp.text();
+            console.error("Gemini API Error:", resp.status, errorText);
+            throw new Error("API Error: " + resp.status + " " + errorText);
+          }
+          break;
+        }
         const data = await resp.json();
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't process that.";
         this.history = this.history.filter((m) => m._id !== loaderId);
         this.addSystemMessage(reply);
       } catch (e) {
         this.history = this.history.filter((m) => m._id !== loaderId);
-        this.addSystemMessage("\u274C Sorry, I encountered an error communicating with the AI. Please check your API key and connection.");
+        this.addSystemMessage(`\u274C Error: ${e.message}`);
         console.error(e);
       }
     }
   };
 
+  // js/resume.js
+  var ResumeManager = {
+    async generate() {
+      if (!state.profile) {
+        alert("Please analyze a profile first!");
+        return;
+      }
+      let container = $("resume-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "resume-container";
+        document.body.appendChild(container);
+      }
+      const btn = $("btn-resume");
+      const originalText = btn.innerHTML;
+      btn.innerHTML = "Generating...";
+      btn.disabled = true;
+      try {
+        const summary = await this.generateSummary();
+        const html = this.buildHTML(summary);
+        container.innerHTML = html;
+        setTimeout(() => window.print(), 500);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to generate resume.");
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    },
+    async generateSummary() {
+      const apiKey = CONFIG.GEMINI_API_KEY;
+      if (!apiKey || !apiKey.trim() || apiKey.startsWith("AQ.")) {
+        return state.profile.bio || "A passionate software developer building open-source projects.";
+      }
+      const prompt = `Write a professional 2-3 sentence resume summary for a developer.
+Details:
+- Name: ${state.profile.name || state.profile.login}
+- Top Languages: ${Object.keys(state.languages).slice(0, 4).join(", ")}
+- Total Repos: ${state.repos.length}
+- GitHub Bio: ${state.profile.bio || "None"}
+Keep it strictly professional and concise. Don't use markdown formatting like asterisks.`;
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-1.5-flash"}:generateContent?key=${apiKey.trim()}`;
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await resp.json();
+        if (data.candidates && data.candidates[0].content.parts[0].text) {
+          return data.candidates[0].content.parts[0].text.trim();
+        }
+      } catch (e) {
+        console.error("Gemini error:", e);
+      }
+      return state.profile.bio || "A passionate software developer building open-source projects.";
+    },
+    buildHTML(summary) {
+      const p = state.profile;
+      const topLangs = Object.keys(state.languages).slice(0, 5);
+      const topRepos = state.repos.filter((r) => !r.fork).sort((a, b) => b.stargazers_count - a.stargazers_count).slice(0, 4);
+      return `
+      <div class="resume-paper">
+        <header class="resume-header">
+          <h1>${p.name || p.login}</h1>
+          <div class="contact-info">
+            <span>github.com/${p.login}</span>
+            ${p.location ? `<span>\u2022 ${p.location}</span>` : ""}
+            ${p.blog ? `<span>\u2022 ${p.blog}</span>` : ""}
+          </div>
+        </header>
+
+        <section class="resume-section">
+          <h2>Professional Summary</h2>
+          <p>${summary}</p>
+        </section>
+
+        <section class="resume-section">
+          <h2>Technical Skills</h2>
+          <p><strong>Top Languages:</strong> ${topLangs.join(", ")}</p>
+          <p><strong>GitHub Metrics:</strong> ${state.repos.length} Repositories, ${state.commits.length} Analyzed Commits</p>
+        </section>
+
+        <section class="resume-section">
+          <h2>Featured Open Source Projects</h2>
+          <div class="resume-projects">
+            ${topRepos.map((repo) => `
+              <div class="resume-project">
+                <div class="project-title-row">
+                  <h3>${repo.name}</h3>
+                  <span class="project-meta">${repo.stargazers_count} Stars \u2022 ${repo.language || "N/A"}</span>
+                </div>
+                <p>${repo.description || "No description provided."}</p>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      </div>
+    `;
+    }
+  };
+
   // js/api.js
-  var AppError = class extends Error {
+  var AppError2 = class extends Error {
     constructor(code, detail) {
       super(code);
       this.code = code;
@@ -391,12 +523,12 @@ Answer the user's question concisely based on this data. Offer actionable career
       try {
         resp = await fetch(url, { headers: this._headers() });
       } catch (networkErr) {
-        throw new AppError("network_error", networkErr.message);
+        throw new AppError2("network_error", networkErr.message);
       }
-      if (resp.status === 404) throw new AppError("not_found");
-      if (resp.status === 401) throw new AppError("invalid_token");
-      if (resp.status === 403) throw new AppError("rate_limit");
-      if (!resp.ok) throw new AppError("api_error", resp.status);
+      if (resp.status === 404) throw new AppError2("not_found");
+      if (resp.status === 401) throw new AppError2("invalid_token");
+      if (resp.status === 403) throw new AppError2("rate_limit");
+      if (!resp.ok) throw new AppError2("api_error", resp.status);
       const data = await resp.json();
       Storage.setCache(url, data);
       return data;
@@ -414,16 +546,38 @@ Answer the user's question concisely based on this data. Offer actionable career
         }
       }
       return results;
+    },
+    async graphql(query, variables = {}) {
+      const url = "https://api.github.com/graphql";
+      let resp;
+      try {
+        resp = await fetch(url, {
+          method: "POST",
+          headers: this._headers(),
+          body: JSON.stringify({ query, variables })
+        });
+      } catch (networkErr) {
+        throw new AppError2("network_error", networkErr.message);
+      }
+      if (resp.status === 401) throw new AppError2("invalid_token");
+      if (resp.status === 403) throw new AppError2("rate_limit");
+      if (!resp.ok) throw new AppError2("api_error", resp.status);
+      const data = await resp.json();
+      if (data.errors) {
+        console.error("GraphQL Errors:", data.errors);
+        throw new AppError2("api_error", data.errors[0].message);
+      }
+      return data.data;
     }
   };
   var InsightsEngine = {
     async analyze(analysisData) {
       const apiKey = CONFIG.GEMINI_API_KEY;
-      if (!apiKey || !apiKey.trim() ) {
+      if (!apiKey || !apiKey.trim() || apiKey.startsWith("AQ.")) {
         return this._fallbackInsights(analysisData);
       }
       const prompt = this._buildPrompt(analysisData);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey.trim()}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || "gemini-3.7-flash"}:generateContent?key=${apiKey.trim()}`;
       const body = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 1200 }
@@ -604,11 +758,17 @@ Return ONLY raw JSON. No markdown backticks.`;
         };
       }).filter(Boolean);
     },
-    calculateStreaks(commits) {
-      if (!Array.isArray(commits) || commits.length === 0) {
+    calculateStreaks(calendar) {
+      if (!calendar || !calendar.weeks) {
         return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
       }
-      const dateSets = [...new Set(commits.map((c) => c.dateStr).filter(Boolean))].sort();
+      const activeDates = [];
+      calendar.weeks.forEach((w) => {
+        w.contributionDays.forEach((d) => {
+          if (d.contributionCount > 0) activeDates.push(d.date);
+        });
+      });
+      const dateSets = [...new Set(activeDates)].sort();
       if (dateSets.length === 0) {
         return { current: 0, longest: 0, totalActive: 0, longestInactive: 0, avgPerWeek: 0 };
       }
@@ -654,13 +814,16 @@ Return ONLY raw JSON. No markdown backticks.`;
         avgPerWeek
       };
     },
-    activityByDay(commits) {
+    activityByDay(calendar) {
       const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const counts = Array(7).fill(0);
-      commits.forEach((c) => {
-        if (c && typeof c.day === "number" && c.day >= 0 && c.day < 7) {
-          counts[c.day]++;
-        }
+      if (!calendar || !calendar.weeks) return days.map((name, i) => ({ name, count: 0 }));
+      calendar.weeks.forEach((w) => {
+        w.contributionDays.forEach((d) => {
+          const date = /* @__PURE__ */ new Date(d.date + "T00:00:00Z");
+          const dayIdx = date.getUTCDay();
+          counts[dayIdx] += d.contributionCount;
+        });
       });
       return days.map((name, i) => ({ name, count: counts[i] }));
     },
@@ -681,12 +844,17 @@ Return ONLY raw JSON. No markdown backticks.`;
       });
       return slots;
     },
-    monthlyCommits(commits) {
+    monthlyCommits(calendar) {
       const map = {};
-      commits.forEach((c) => {
-        if (c && c.month) {
-          map[c.month] = (map[c.month] || 0) + 1;
-        }
+      if (!calendar || !calendar.weeks) return [];
+      calendar.weeks.forEach((w) => {
+        w.contributionDays.forEach((d) => {
+          const date = /* @__PURE__ */ new Date(d.date + "T00:00:00Z");
+          const y = date.getUTCFullYear();
+          const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+          const monthStr = `${y}-${m}`;
+          map[monthStr] = (map[monthStr] || 0) + d.contributionCount;
+        });
       });
       return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }));
     },
@@ -742,7 +910,7 @@ Return ONLY raw JSON. No markdown backticks.`;
       const cutoff = Date.now() - numDays * 864e5;
       return commits.filter((c) => c.date && c.date.getTime() >= cutoff);
     },
-    computeStats(profile, repos, commits) {
+    computeStats(profile, repos, calendar) {
       const totalStars = repos.reduce((s, r) => s + (r.stars || 0), 0);
       const totalForks = repos.reduce((s, r) => s + (r.forks || 0), 0);
       const totalIssues = repos.reduce((s, r) => s + (r.issues || 0), 0);
@@ -750,7 +918,7 @@ Return ONLY raw JSON. No markdown backticks.`;
         totalRepos: profile.public_repos || repos.length,
         totalStars,
         totalForks,
-        totalCommits: commits.length,
+        totalCommits: calendar ? calendar.totalContributions : 0,
         followers: profile.followers || 0,
         following: profile.following || 0,
         totalIssues,
@@ -830,12 +998,9 @@ Return ONLY raw JSON. No markdown backticks.`;
   }
   function renderStats(stats) {
     const items = [
-      { label: "Repositories", value: stats.totalRepos, icon: "\u{1F4C1}", color: "#5b6af0" },
       { label: "Total Stars", value: stats.totalStars, icon: "\u2B50", color: "#f79824" },
       { label: "Total Forks", value: stats.totalForks, icon: "\u{1F374}", color: "#38c97a" },
       { label: "Commits Analyzed", value: stats.totalCommits, icon: "\u{1F4E6}", color: "#9f7aea" },
-      { label: "Followers", value: stats.followers, icon: "\u{1F465}", color: "#38b2ac" },
-      { label: "Following", value: stats.following, icon: "\u27A1\uFE0F", color: "#ed64a6" },
       { label: "Open Issues", value: stats.totalIssues, icon: "\u{1F41B}", color: "#e85b5b" },
       { label: "Public Gists", value: stats.publicGists, icon: "\u{1F4DD}", color: "#f79824" }
     ];
@@ -881,27 +1046,27 @@ Return ONLY raw JSON. No markdown backticks.`;
     $("mini-current-streak").textContent = streaks.current || 0;
     $("mini-longest-streak").textContent = streaks.longest || 0;
   }
-  function renderActivity(commits, period) {
-    const filtered = DataProcessor.filterByPeriod(commits, period);
-    renderHeatmap(filtered, period);
-    renderActivitySummary(filtered);
-    renderStreaks(DataProcessor.calculateStreaks(filtered));
-    renderDayChart(DataProcessor.activityByDay(filtered));
-    renderTimeGrid(DataProcessor.activityByHour(filtered));
-    renderMonthlyChart(DataProcessor.monthlyCommits(filtered));
+  function renderActivity(calendar, commits, period) {
+    renderHeatmap(calendar, period);
+    renderActivitySummary(calendar);
+    renderStreaks(DataProcessor.calculateStreaks(calendar));
+    renderDayChart(DataProcessor.activityByDay(calendar));
+    renderTimeGrid(DataProcessor.activityByHour(commits));
+    renderMonthlyChart(DataProcessor.monthlyCommits(calendar));
   }
-  function renderActivitySummary(filtered) {
-    const streaks = DataProcessor.calculateStreaks(filtered);
-    const byDay = DataProcessor.activityByDay(filtered);
+  function renderActivitySummary(calendar) {
+    const streaks = DataProcessor.calculateStreaks(calendar);
+    const byDay = DataProcessor.activityByDay(calendar);
     const mostActiveDay = [...byDay].sort((a, b) => b.count - a.count)[0];
-    const monthly = DataProcessor.monthlyCommits(filtered);
+    const monthly = DataProcessor.monthlyCommits(calendar);
     const mostActiveMonth = [...monthly].sort((a, b) => b.count - a.count)[0];
+    const totalCommits = calendar && calendar.totalContributions ? calendar.totalContributions : 0;
     const items = [
-      { label: "Total Commits", value: filtered.length, sub: "in period" },
+      { label: "Total Contributions", value: totalCommits, sub: "last 365 days" },
       { label: "Active Days", value: streaks.totalActive, sub: "unique days" },
       {
         label: "Daily Average",
-        value: filtered.length > 0 && streaks.totalActive > 0 ? (filtered.length / streaks.totalActive).toFixed(1) : "0",
+        value: totalCommits > 0 && streaks.totalActive > 0 ? (totalCommits / streaks.totalActive).toFixed(1) : "0",
         sub: "commits/active day"
       },
       {
@@ -923,69 +1088,51 @@ Return ONLY raw JSON. No markdown backticks.`;
     </div>`
     ).join("");
   }
-  function renderHeatmap(commits, period) {
+  function renderHeatmap(calendar, period) {
     const grid = $("heatmap-grid");
-    if (!grid) return;
+    if (!grid || !calendar || !calendar.weeks) return;
     grid.innerHTML = "";
-    const now = /* @__PURE__ */ new Date();
-    const endUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    let days = period === "all" ? 365 : Number(period);
-    if (isNaN(days) || days < 7) days = 7;
-    const startUtc = new Date(endUtc.getTime() - (days - 1) * 864e5);
-    const countMap = {};
-    commits.forEach((c) => {
-      if (c && c.dateStr) {
-        const d = /* @__PURE__ */ new Date(c.dateStr + "T00:00:00Z");
-        if (d >= startUtc && d <= endUtc) {
-          countMap[c.dateStr] = (countMap[c.dateStr] || 0) + 1;
-        }
-      }
+    let maxCount = 1;
+    calendar.weeks.forEach((w) => {
+      w.contributionDays.forEach((d) => {
+        if (d.contributionCount > maxCount) maxCount = d.contributionCount;
+      });
     });
-    const firstSunday = new Date(startUtc.getTime() - startUtc.getUTCDay() * 864e5);
-    const counts = Object.values(countMap);
-    const maxCount = counts.length > 0 ? Math.max(1, ...counts) : 1;
-    const cursor = new Date(firstSunday.getTime());
-    while (cursor <= endUtc) {
+    calendar.weeks.forEach((w) => {
       const weekEl = document.createElement("div");
       weekEl.className = "heatmap-week";
-      for (let d = 0; d < 7; d++) {
-        const dateStr = getUtcDateStr(cursor);
-        const count = countMap[dateStr] || 0;
-        const inRange = cursor >= startUtc && cursor <= endUtc;
+      const firstDayDate = /* @__PURE__ */ new Date(w.contributionDays[0].date + "T00:00:00Z");
+      const startPadding = firstDayDate.getUTCDay();
+      const daysInWeek = Array(7).fill(null);
+      w.contributionDays.forEach((d) => {
+        const date = /* @__PURE__ */ new Date(d.date + "T00:00:00Z");
+        daysInWeek[date.getUTCDay()] = d;
+      });
+      daysInWeek.forEach((d) => {
         const cell = document.createElement("div");
         cell.className = "heatmap-cell";
-        if (inRange && count > 0) {
-          const level = count >= maxCount * 0.75 ? 4 : count >= maxCount * 0.5 ? 3 : count >= maxCount * 0.25 ? 2 : 1;
-          cell.dataset.level = String(level);
-        }
-        if (inRange) {
+        if (d) {
+          const count = d.contributionCount;
+          if (count > 0) {
+            const level = count >= maxCount * 0.75 ? 4 : count >= maxCount * 0.5 ? 3 : count >= maxCount * 0.25 ? 2 : 1;
+            cell.dataset.level = String(level);
+          }
           cell.addEventListener("mouseenter", (e) => {
-            const repos = commits.filter((c) => c.dateStr === dateStr).map((c) => c.repo).filter(Boolean);
-            const uniqueRepos = [...new Set(repos)];
             showTooltip(
-              `<strong>${formatDate(dateStr + "T00:00:00Z")}</strong><br>
-             ${count} commit${count !== 1 ? "s" : ""}${uniqueRepos.length > 0 ? '<br><span style="color:#a0aec0">' + escapeHtml(uniqueRepos.slice(0, 3).join(", ")) + "</span>" : ""}`,
+              `<strong>${formatDate(d.date + "T00:00:00Z")}</strong><br>
+             ${count} contribution${count !== 1 ? "s" : ""}`,
               e.clientX,
               e.clientY
             );
           });
           cell.addEventListener("mouseleave", hideTooltip);
-          cell.addEventListener("mousemove", (e) => {
-            const tip = getTooltip();
-            if (tip) {
-              const tw = tip.offsetWidth, th = tip.offsetHeight;
-              tip.style.left = Math.min(e.clientX + 12, window.innerWidth - tw - 12) + "px";
-              tip.style.top = Math.max(e.clientY - th - 10, 10) + "px";
-            }
-          });
         } else {
-          cell.style.opacity = "0.2";
+          cell.style.visibility = "hidden";
         }
         weekEl.appendChild(cell);
-        cursor.setTime(cursor.getTime() + 864e5);
-      }
+      });
       grid.appendChild(weekEl);
-    }
+    });
     const legend = $("heatmap-legend");
     if (legend) {
       legend.innerHTML = `
@@ -999,7 +1146,30 @@ Return ONLY raw JSON. No markdown backticks.`;
     }
     const scrollEl = document.querySelector(".heatmap-scroll");
     if (scrollEl) {
-      scrollEl.scrollLeft = scrollEl.scrollWidth;
+      setTimeout(() => {
+        scrollEl.scrollLeft = scrollEl.scrollWidth;
+      }, 100);
+      let isDown = false;
+      let startX;
+      let scrollLeft;
+      scrollEl.addEventListener("mousedown", (e) => {
+        isDown = true;
+        startX = e.pageX - scrollEl.offsetLeft;
+        scrollLeft = scrollEl.scrollLeft;
+      });
+      scrollEl.addEventListener("mouseleave", () => {
+        isDown = false;
+      });
+      scrollEl.addEventListener("mouseup", () => {
+        isDown = false;
+      });
+      scrollEl.addEventListener("mousemove", (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - scrollEl.offsetLeft;
+        const walk = (x - startX) * 2;
+        scrollEl.scrollLeft = scrollLeft - walk;
+      });
     }
   }
   function renderStreaks(streaks) {
@@ -1323,6 +1493,14 @@ Return ONLY raw JSON. No markdown backticks.`;
     if (sec) {
       sec.hidden = false;
       sec.classList.add("active");
+      if (name === "activity") {
+        const scrollEl = document.querySelector(".heatmap-scroll");
+        if (scrollEl) {
+          setTimeout(() => {
+            scrollEl.scrollLeft = scrollEl.scrollWidth;
+          }, 10);
+        }
+      }
     }
     if (btn) btn.classList.add("active");
   }
@@ -1375,46 +1553,156 @@ Return ONLY raw JSON. No markdown backticks.`;
     hideEl($("dashboard"));
     try {
       setStep("profile");
-      setStatus("Fetching profile info...");
-      state.profile = await ApiClient.get(`/users/${encodeURIComponent(username)}`);
+      setStatus("Fetching comprehensive profile data via GraphQL...");
+      const query = `
+      query($login: String!) {
+        user(login: $login) {
+          name
+          login
+          avatarUrl
+          bio
+          location
+          company
+          websiteUrl
+          createdAt
+          url
+          followers { totalCount }
+          following { totalCount }
+          repositories(first: 100, ownerAffiliations: OWNER, orderBy: {field: PUSHED_AT, direction: DESC}) {
+            totalCount
+            nodes {
+              name
+              description
+              stargazerCount
+              forkCount
+              isFork
+              pushedAt
+              createdAt
+              url
+              diskUsage
+              primaryLanguage {
+                name
+              }
+              languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+                edges {
+                  size
+                  node {
+                    name
+                  }
+                }
+              }
+            }
+          }
+          contributionsCollection {
+            contributionYears
+          }
+        }
+      }
+    `;
+      const gqlData = await ApiClient.graphql(query, { login: username });
+      if (!gqlData || !gqlData.user) throw new AppError("not_found");
+      const u = gqlData.user;
+      state.profile = {
+        login: u.login,
+        name: u.name,
+        avatar_url: u.avatarUrl,
+        bio: u.bio,
+        location: u.location,
+        company: u.company,
+        blog: u.websiteUrl,
+        created_at: u.createdAt,
+        html_url: u.url,
+        public_repos: u.repositories?.totalCount || 0,
+        followers: u.followers?.totalCount || 0,
+        following: u.following?.totalCount || 0
+      };
       setStep("profile", true);
-      const actualLogin = state.profile.login || username;
+      const actualLogin = u.login;
       setStep("repos");
-      setStatus("Loading repository portfolio...");
-      const rawRepos = await ApiClient.getPages(
-        `/users/${encodeURIComponent(actualLogin)}/repos?sort=pushed&type=all`,
-        Math.ceil(CONFIG.MAX_REPOS / 100)
-      );
-      state.repos = DataProcessor.processRepos(rawRepos);
+      setStatus("Processing repositories...");
+      const rawRepos = u.repositories?.nodes || [];
+      state.repos = rawRepos.map((r) => ({
+        name: r.name,
+        fullName: `${u.login}/${r.name}`,
+        description: r.description || "",
+        language: r.primaryLanguage?.name || null,
+        stars: r.stargazerCount || 0,
+        forks: r.forkCount || 0,
+        issues: 0,
+        updatedAt: new Date(r.pushedAt || r.createdAt),
+        createdAt: new Date(r.createdAt),
+        url: r.url,
+        fork: r.isFork,
+        size: r.diskUsage || 0,
+        _languages: r.languages?.edges || []
+      }));
       setStep("repos", true);
       setStep("languages");
       setStatus("Aggregating languages & code stats...");
-      const nonForkRepos = state.repos.filter((r) => !r.fork);
-      const langCandidates = (nonForkRepos.length > 0 ? nonForkRepos : state.repos).slice(0, 10);
-      const langPromises = langCandidates.map(
-        (r) => ApiClient.get(`/repos/${encodeURIComponent(r.fullName)}/languages`).then((data) => ({ repo: r.name, data })).catch(() => ({ repo: r.name, data: {} }))
-      );
-      const langResults = await Promise.all(langPromises);
-      state.languages = DataProcessor.aggregateLanguages(langResults);
+      const langMap = {};
       state.repos.forEach((r) => {
-        if (r.language && !state.languages[r.language]) {
-          state.languages[r.language] = {
-            bytes: Math.max(1024, (r.size || 10) * 1024),
-            repoCount: 1,
-            repos: [r.name]
-          };
-        }
+        if (r.fork) return;
+        r._languages.forEach((edge) => {
+          const langName = edge.node.name;
+          const bytes = edge.size;
+          if (!langMap[langName]) {
+            langMap[langName] = { bytes: 0, repoCount: 0, repos: [] };
+          }
+          langMap[langName].bytes += bytes;
+          langMap[langName].repoCount++;
+          langMap[langName].repos.push(r.name);
+        });
       });
+      state.languages = langMap;
       setStep("languages", true);
       setStep("activity");
       setStatus("Analyzing commit activity & streak metrics...");
-      const topRepos = [...state.repos].sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, CONFIG.COMMIT_REPOS);
-      const commitPromises = topRepos.map(
-        (r) => ApiClient.get(`/repos/${encodeURIComponent(r.fullName)}/commits?per_page=${CONFIG.COMMITS_PER_REPO}`).then((data) => Array.isArray(data) ? data.map((c) => ({ ...c, _repo: r.name })) : []).catch(() => [])
-      );
-      const eventsPromise = ApiClient.get(`/users/${encodeURIComponent(actualLogin)}/events/public?per_page=100`).then((events) => {
-        if (!Array.isArray(events)) return [];
-        const extracted = [];
+      const years = u.contributionsCollection?.contributionYears || [];
+      if (years.length > 0) {
+        setStatus("Fetching lifetime contribution data...");
+        let lifetimeQuery = `query($login: String!) { user(login: $login) { `;
+        const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+        years.forEach((year) => {
+          const from = `${year}-01-01T00:00:00Z`;
+          const to = year === currentYear ? (/* @__PURE__ */ new Date()).toISOString() : `${year}-12-31T23:59:59Z`;
+          lifetimeQuery += `
+          year${year}: contributionsCollection(from: "${from}", to: "${to}") {
+            contributionCalendar {
+              totalContributions
+              weeks {
+                contributionDays {
+                  contributionCount
+                  date
+                }
+              }
+            }
+          }
+        `;
+        });
+        lifetimeQuery += ` } }`;
+        const lifetimeData = await ApiClient.graphql(lifetimeQuery, { login: username });
+        if (lifetimeData && lifetimeData.user) {
+          let totalContributions = 0;
+          let allWeeks = [];
+          const sortedYears = [...years].sort((a, b) => a - b);
+          sortedYears.forEach((year) => {
+            const cal = lifetimeData.user[`year${year}`]?.contributionCalendar;
+            if (cal) {
+              totalContributions += cal.totalContributions;
+              allWeeks = allWeeks.concat(cal.weeks);
+            }
+          });
+          state.contributionCalendar = {
+            totalContributions,
+            weeks: allWeeks
+          };
+        }
+      } else {
+        state.contributionCalendar = { totalContributions: 0, weeks: [] };
+      }
+      const events = await ApiClient.get(`/users/${encodeURIComponent(actualLogin)}/events/public?per_page=100`).catch(() => []);
+      const extracted = [];
+      if (Array.isArray(events)) {
         events.forEach((ev) => {
           if (ev.type === "PushEvent" && ev.payload?.commits) {
             ev.payload.commits.forEach((pc) => {
@@ -1432,20 +1720,14 @@ Return ONLY raw JSON. No markdown backticks.`;
             });
           }
         });
-        return extracted;
-      }).catch(() => []);
-      const [rawCommitsArrays, eventCommits] = await Promise.all([
-        Promise.all(commitPromises),
-        eventsPromise
-      ]);
-      const allRawCommits = [...rawCommitsArrays.flat(), ...eventCommits];
-      state.commits = DataProcessor.parseCommits(allRawCommits);
+      }
+      state.commits = DataProcessor.parseCommits(extracted);
       setStep("activity", true);
       setStep("insights");
       setStatus("Generating developer intelligence insights...");
       const langStats = DataProcessor.getLanguageStats(state.languages);
-      const stats = DataProcessor.computeStats(state.profile, state.repos, state.commits);
-      const streaks = DataProcessor.calculateStreaks(state.commits);
+      const stats = DataProcessor.computeStats(state.profile, state.repos, state.contributionCalendar);
+      const streaks = DataProcessor.calculateStreaks(state.contributionCalendar);
       const scoreData = DataProcessor.calculateScore({
         repos: state.repos,
         commits: state.commits,
@@ -1459,7 +1741,7 @@ Return ONLY raw JSON. No markdown backticks.`;
         totalRepos: stats.totalRepos,
         totalStars: stats.totalStars,
         totalForks: stats.totalForks,
-        totalCommits: state.commits.length,
+        totalCommits: state.contributionCalendar?.totalContributions || 0,
         currentStreak: streaks.current,
         longestStreak: streaks.longest,
         activeDays: streaks.totalActive,
@@ -1475,7 +1757,7 @@ Return ONLY raw JSON. No markdown backticks.`;
       renderStats(stats);
       renderScore(scoreData);
       renderStreakMini(streaks);
-      renderActivity(state.commits, state.period);
+      renderActivity(state.contributionCalendar, state.commits, state.period);
       renderRepoHighlights();
       renderRepositories();
       renderLanguages(langStats);
@@ -1493,6 +1775,19 @@ Return ONLY raw JSON. No markdown backticks.`;
     }
   }
   function init() {
+    $("btn-roast")?.addEventListener("click", () => {
+      ChatEngine.isOpen = false;
+      ChatEngine.toggle();
+      ChatEngine.sendMessage("Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.");
+    });
+    $("btn-career-pred")?.addEventListener("click", () => {
+      ChatEngine.isOpen = false;
+      ChatEngine.toggle();
+      ChatEngine.sendMessage("Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.");
+    });
+    $("btn-resume")?.addEventListener("click", () => {
+      ResumeManager.generate();
+    });
     ThemeManager.init();
     ExportManager.init();
     ChatEngine.init();
@@ -1586,6 +1881,23 @@ Return ONLY raw JSON. No markdown backticks.`;
       $("sidebar-toggle")?.setAttribute("aria-expanded", String(!isOpen));
     });
     $("sidebar-overlay")?.addEventListener("click", closeSidebar);
+    $("desktop-sidebar-toggle")?.addEventListener("click", () => {
+      $("sidebar")?.classList.toggle("collapsed");
+      $("main-content")?.classList.toggle("expanded");
+      const topbar = $("desktop-topbar");
+      if (topbar) topbar.style.display = "none";
+    });
+    $("close-sidebar-btn")?.addEventListener("click", () => {
+      if (window.innerWidth <= 768) {
+        closeSidebar();
+      } else {
+        $("sidebar")?.classList.add("collapsed");
+        $("main-content")?.classList.add("expanded");
+        const topbar = $("desktop-topbar");
+        if (topbar) topbar.style.display = "flex";
+      }
+    });
+    $("sidebar-new-search")?.addEventListener("click", resetToLanding);
     hideEl($("dashboard"));
     hideEl($("loading-screen"));
     hideEl($("error-banner"));

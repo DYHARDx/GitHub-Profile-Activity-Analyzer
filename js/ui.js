@@ -84,12 +84,9 @@ export function renderProfile(profile) {
 
 export function renderStats(stats) {
   const items = [
-    { label: 'Repositories', value: stats.totalRepos, icon: '📁', color: '#5b6af0' },
     { label: 'Total Stars', value: stats.totalStars, icon: '⭐', color: '#f79824' },
     { label: 'Total Forks', value: stats.totalForks, icon: '🍴', color: '#38c97a' },
     { label: 'Commits Analyzed', value: stats.totalCommits, icon: '📦', color: '#9f7aea' },
-    { label: 'Followers', value: stats.followers, icon: '👥', color: '#38b2ac' },
-    { label: 'Following', value: stats.following, icon: '➡️', color: '#ed64a6' },
     { label: 'Open Issues', value: stats.totalIssues, icon: '🐛', color: '#e85b5b' },
     { label: 'Public Gists', value: stats.publicGists, icon: '📝', color: '#f79824' },
   ];
@@ -144,30 +141,31 @@ export function renderStreakMini(streaks) {
   $('mini-longest-streak').textContent = streaks.longest || 0;
 }
 
-export function renderActivity(commits, period) {
-  const filtered = DataProcessor.filterByPeriod(commits, period);
-  renderHeatmap(filtered, period);
-  renderActivitySummary(filtered);
-  renderStreaks(DataProcessor.calculateStreaks(filtered));
-  renderDayChart(DataProcessor.activityByDay(filtered));
-  renderTimeGrid(DataProcessor.activityByHour(filtered));
-  renderMonthlyChart(DataProcessor.monthlyCommits(filtered));
+export function renderActivity(calendar, commits, period) {
+  renderHeatmap(calendar, period);
+  renderActivitySummary(calendar);
+  renderStreaks(DataProcessor.calculateStreaks(calendar));
+  renderDayChart(DataProcessor.activityByDay(calendar));
+  renderTimeGrid(DataProcessor.activityByHour(commits));
+  renderMonthlyChart(DataProcessor.monthlyCommits(calendar));
 }
 
-export function renderActivitySummary(filtered) {
-  const streaks = DataProcessor.calculateStreaks(filtered);
-  const byDay = DataProcessor.activityByDay(filtered);
+export function renderActivitySummary(calendar) {
+  const streaks = DataProcessor.calculateStreaks(calendar);
+  const byDay = DataProcessor.activityByDay(calendar);
   const mostActiveDay = [...byDay].sort((a, b) => b.count - a.count)[0];
-  const monthly = DataProcessor.monthlyCommits(filtered);
+  const monthly = DataProcessor.monthlyCommits(calendar);
   const mostActiveMonth = [...monthly].sort((a, b) => b.count - a.count)[0];
+  
+  const totalCommits = calendar && calendar.totalContributions ? calendar.totalContributions : 0;
 
   const items = [
-    { label: 'Total Commits', value: filtered.length, sub: 'in period' },
+    { label: 'Total Contributions', value: totalCommits, sub: 'last 365 days' },
     { label: 'Active Days', value: streaks.totalActive, sub: 'unique days' },
     {
       label: 'Daily Average',
-      value: filtered.length > 0 && streaks.totalActive > 0
-        ? (filtered.length / streaks.totalActive).toFixed(1) : '0',
+      value: totalCommits > 0 && streaks.totalActive > 0
+        ? (totalCommits / streaks.totalActive).toFixed(1) : '0',
       sub: 'commits/active day'
     },
     {
@@ -191,87 +189,64 @@ export function renderActivitySummary(filtered) {
   ).join('');
 }
 
-export function renderHeatmap(commits, period) {
+export function renderHeatmap(calendar, period) {
   const grid = $('heatmap-grid');
-  if (!grid) return;
+  if (!grid || !calendar || !calendar.weeks) return;
   grid.innerHTML = '';
-  const now = new Date();
-  const endUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-
-  let days = period === 'all' ? 365 : Number(period);
-  if (isNaN(days) || days < 7) days = 7;
-
-  const startUtc = new Date(endUtc.getTime() - (days - 1) * 86400000);
-
-  const countMap = {};
-  commits.forEach(c => {
-    if (c && c.dateStr) {
-      const d = new Date(c.dateStr + 'T00:00:00Z');
-      if (d >= startUtc && d <= endUtc) {
-        countMap[c.dateStr] = (countMap[c.dateStr] || 0) + 1;
-      }
-    }
+  
+  let maxCount = 1;
+  calendar.weeks.forEach(w => {
+    w.contributionDays.forEach(d => {
+      if (d.contributionCount > maxCount) maxCount = d.contributionCount;
+    });
   });
 
-  const firstSunday = new Date(startUtc.getTime() - startUtc.getUTCDay() * 86400000);
-
-  const counts = Object.values(countMap);
-  const maxCount = counts.length > 0 ? Math.max(1, ...counts) : 1;
-
-  const cursor = new Date(firstSunday.getTime());
-  while (cursor <= endUtc) {
+  calendar.weeks.forEach(w => {
     const weekEl = document.createElement('div');
     weekEl.className = 'heatmap-week';
+    
+    // GraphQL provides up to 7 days. If a week is partial (e.g. at the start of the year),
+    // it only contains the days within the year. We must pad the start so days align vertically.
+    const firstDayDate = new Date(w.contributionDays[0].date + 'T00:00:00Z');
+    const startPadding = firstDayDate.getUTCDay();
+    
+    const daysInWeek = Array(7).fill(null);
+    w.contributionDays.forEach(d => {
+      const date = new Date(d.date + 'T00:00:00Z');
+      daysInWeek[date.getUTCDay()] = d;
+    });
 
-    for (let d = 0; d < 7; d++) {
-      const dateStr = getUtcDateStr(cursor);
-      const count = countMap[dateStr] || 0;
-      const inRange = cursor >= startUtc && cursor <= endUtc;
-
+    daysInWeek.forEach(d => {
       const cell = document.createElement('div');
       cell.className = 'heatmap-cell';
-
-      if (inRange && count > 0) {
-        const level = count >= maxCount * 0.75 ? 4
-          : count >= maxCount * 0.5 ? 3
-            : count >= maxCount * 0.25 ? 2 : 1;
-        cell.dataset.level = String(level);
-      }
-
-      if (inRange) {
+      
+      if (d) {
+        const count = d.contributionCount;
+        if (count > 0) {
+          const level = count >= maxCount * 0.75 ? 4
+            : count >= maxCount * 0.5 ? 3
+              : count >= maxCount * 0.25 ? 2 : 1;
+          cell.dataset.level = String(level);
+        }
+        
         cell.addEventListener('mouseenter', e => {
-          const repos = commits
-            .filter(c => c.dateStr === dateStr)
-            .map(c => c.repo)
-            .filter(Boolean);
-          const uniqueRepos = [...new Set(repos)];
           showTooltip(
-            `<strong>${formatDate(dateStr + 'T00:00:00Z')}</strong><br>
-             ${count} commit${count !== 1 ? 's' : ''}${uniqueRepos.length > 0
-              ? '<br><span style="color:#a0aec0">' + escapeHtml(uniqueRepos.slice(0, 3).join(', ')) + '</span>'
-              : ''}`,
+            `<strong>${formatDate(d.date + 'T00:00:00Z')}</strong><br>
+             ${count} contribution${count !== 1 ? 's' : ''}`,
             e.clientX, e.clientY
           );
         });
         cell.addEventListener('mouseleave', hideTooltip);
-        cell.addEventListener('mousemove', e => {
-          const tip = getTooltip();
-          if (tip) {
-            const tw = tip.offsetWidth, th = tip.offsetHeight;
-            tip.style.left = Math.min(e.clientX + 12, window.innerWidth - tw - 12) + 'px';
-            tip.style.top = Math.max(e.clientY - th - 10, 10) + 'px';
-          }
-        });
       } else {
-        cell.style.opacity = '0.2';
+        cell.style.visibility = 'hidden';
       }
 
       weekEl.appendChild(cell);
-      cursor.setTime(cursor.getTime() + 86400000);
-    }
-
+    });
+    
     grid.appendChild(weekEl);
-  }
+  });
+  
   const legend = $('heatmap-legend');
   if (legend) {
     legend.innerHTML = `
@@ -287,7 +262,30 @@ export function renderHeatmap(commits, period) {
   // Auto-scroll to the rightmost (newest) part of the heatmap
   const scrollEl = document.querySelector('.heatmap-scroll');
   if (scrollEl) {
-    scrollEl.scrollLeft = scrollEl.scrollWidth;
+    setTimeout(() => {
+      scrollEl.scrollLeft = scrollEl.scrollWidth;
+    }, 100);
+
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    
+    scrollEl.addEventListener('mousedown', (e) => {
+      isDown = true;
+      startX = e.pageX - scrollEl.offsetLeft;
+      scrollLeft = scrollEl.scrollLeft;
+    });
+    
+    scrollEl.addEventListener('mouseleave', () => { isDown = false; });
+    scrollEl.addEventListener('mouseup', () => { isDown = false; });
+    
+    scrollEl.addEventListener('mousemove', (e) => {
+      if(!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - scrollEl.offsetLeft;
+      const walk = (x - startX) * 2;
+      scrollEl.scrollLeft = scrollLeft - walk;
+    });
   }
 }
 
