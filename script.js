@@ -122,7 +122,8 @@
     repoSort: "stars",
     period: "all",
     insights: null,
-    techStack: []
+    techStack: [],
+    career: null
   };
 
   // js/storage.js
@@ -508,6 +509,487 @@ Keep it strictly professional and concise. Don't use markdown formatting like as
         btn.innerHTML = originalContent;
         btn.disabled = false;
       }
+    }
+  };
+
+  // js/jobs.js
+  var JobsManager = {
+    async runJobMatcher() {
+      const container = $("career-matcher-container");
+      const list = $("career-roles-list");
+      if (!container || !list || !state.profile) return;
+      container.style.display = "block";
+      list.innerHTML = `
+        <div style="text-align: center; opacity: 0.6; padding: 20px;">
+          <div class="insight-spinner" aria-hidden="true" style="margin: 0 auto 10px;"></div>
+          Analyzing profile and finding best matches...
+        </div>
+      `;
+      try {
+        const roles = await InsightsEngine.generateJobs(state.profile, state.techStack, state.languages);
+        if (!roles || roles.length === 0) {
+          list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px;">No specific matches found. Keep building!</div>`;
+          return;
+        }
+        let loc = state.profile.location || "Remote";
+        list.innerHTML = roles.map((role) => {
+          const query = encodeURIComponent(`${role} jobs in ${loc}`);
+          const linkedInQuery = encodeURIComponent(role);
+          const linkedInLoc = encodeURIComponent(loc);
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 600; font-size: 1.05rem;">${escapeHtml(role)}</span>
+                <span style="font-size: 0.8rem; opacity: 0.7;">📍 ${escapeHtml(loc)} / Remote</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <a href="https://www.google.com/search?q=${query}&ibp=htl;jobs" target="_blank" rel="noopener noreferrer" style="background: white; color: #1a1a1a; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  Google Jobs
+                </a>
+                <a href="https://www.linkedin.com/jobs/search/?keywords=${linkedInQuery}&location=${linkedInLoc}" target="_blank" rel="noopener noreferrer" style="background: #0a66c2; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                  LinkedIn
+                </a>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div style="text-align: center; opacity: 0.6; padding: 10px; color: #ff6b81;">Failed to generate career matches. Please try again later.</div>`;
+      }
+    }
+  };
+
+  // js/career.js
+  var CareerMatcher = {
+    ROLES_CATALOG: [
+      {
+        id: "frontend-intern",
+        title: "Frontend Developer Intern",
+        type: "Internship",
+        category: "Frontend & Web",
+        primaryLangs: ["JavaScript", "TypeScript", "HTML", "CSS", "Vue", "Svelte"],
+        keywords: ["react", "next.js", "vue", "tailwind", "redux", "vite", "webpack", "frontend", "ui", "css", "sass"],
+        baseMatch: 75,
+        skillsPossessed: ["HTML5 & CSS3", "JavaScript / ES6+", "Modern UI Design"],
+        skillsToLearn: ["TypeScript", "Tailwind CSS", "Testing (Jest/Cypress)", "Web Performance"],
+        description: "Build interactive, responsive web interfaces, collaborate with design teams, and optimize client-side performance.",
+        projectIdeas: [
+          "Interactive SaaS Dashboard with dark mode, live charts, and component library",
+          "Real-time Collaborative Whiteboard or Canvas tool using WebSockets"
+        ],
+        searchKeywords: "Frontend Developer Internship"
+      },
+      {
+        id: "junior-frontend-dev",
+        title: "Junior Frontend Engineer",
+        type: "Junior / Entry-Level",
+        category: "Frontend & Web",
+        primaryLangs: ["TypeScript", "JavaScript", "HTML", "CSS"],
+        keywords: ["react", "next.js", "typescript", "tailwind", "graphql", "zustand"],
+        baseMatch: 70,
+        skillsPossessed: ["JavaScript / TypeScript", "Component Architecture", "State Management"],
+        skillsToLearn: ["Next.js / SSR", "GraphQL / REST Integration", "CI/CD & Accessibility (a11y)"],
+        description: "Develop production-grade user-facing features, maintain clean component hierarchies, and integrate REST/GraphQL APIs.",
+        projectIdeas: [
+          "Full-featured E-Commerce Store with cart, Stripe checkout, and SSR with Next.js",
+          "Developer Tooling Web App with markdown rendering and GitHub OAuth"
+        ],
+        searchKeywords: "Junior Frontend Engineer"
+      },
+      {
+        id: "backend-python-intern",
+        title: "Backend Engineering Intern (Python)",
+        type: "Internship",
+        category: "Backend & APIs",
+        primaryLangs: ["Python"],
+        keywords: ["django", "fastapi", "flask", "sqlalchemy", "postgresql", "api", "backend", "redis"],
+        baseMatch: 80,
+        skillsPossessed: ["Python 3", "REST API Design", "Data Modeling"],
+        skillsToLearn: ["FastAPI / AsyncIO", "PostgreSQL & ORM", "Docker & Containerization", "Redis Caching"],
+        description: "Design and deploy scalable RESTful APIs, manage databases, and write efficient backend services.",
+        projectIdeas: [
+          "High-performance REST API with FastAPI, JWT authentication, and rate limiting",
+          "Task Queue & Background Worker service with Celery and Redis"
+        ],
+        searchKeywords: "Python Backend Developer Internship"
+      },
+      {
+        id: "fullstack-intern",
+        title: "Full-Stack Developer Intern",
+        type: "Internship",
+        category: "Full-Stack",
+        primaryLangs: ["JavaScript", "TypeScript", "Python", "PHP", "Ruby", "Java"],
+        keywords: ["node.js", "express", "react", "next.js", "django", "mongodb", "postgresql", "fullstack"],
+        baseMatch: 78,
+        skillsPossessed: ["Client & Server Architecture", "Database Integration", "API Development"],
+        skillsToLearn: ["Docker Containers", "Cloud Deployment (AWS/Vercel)", "Automated Unit/E2E Testing"],
+        description: "Work across both the client-side interface and server-side business logic, shipping complete end-to-end features.",
+        projectIdeas: [
+          "Full-stack Project Management Tool with drag-and-drop Kanban and real-time updates",
+          "Multi-tenant Blogging Platform with markdown editor and image storage"
+        ],
+        searchKeywords: "Full Stack Developer Internship"
+      },
+      {
+        id: "junior-fullstack-dev",
+        title: "Junior Full-Stack Engineer",
+        type: "Junior / Entry-Level",
+        category: "Full-Stack",
+        primaryLangs: ["TypeScript", "JavaScript", "Python", "Go"],
+        keywords: ["next.js", "react", "node.js", "postgresql", "prisma", "docker"],
+        baseMatch: 72,
+        skillsPossessed: ["Full-Stack TypeScript / Node", "SQL Databases", "Authentication & Security"],
+        skillsToLearn: ["Microservices / Monorepo architecture", "Docker & Kubernetes", "System Design Basics"],
+        description: "Ship scalable full-stack applications with robust backend services, databases, and polished frontends.",
+        projectIdeas: [
+          "AI-Powered Code Assistant Web App with OAuth, streaming responses, and billing",
+          "Real-time Analytics Engine with dashboard and high-throughput ingestion endpoint"
+        ],
+        searchKeywords: "Junior Full Stack Engineer"
+      },
+      {
+        id: "ai-ml-intern",
+        title: "AI / Machine Learning Intern",
+        type: "Internship",
+        category: "AI & Data Science",
+        primaryLangs: ["Python", "R", "C++", "Julia"],
+        keywords: ["tensorflow", "pytorch", "scikit-learn", "pandas", "numpy", "opencv", "nlp", "llm", "machine learning", "deep learning"],
+        baseMatch: 82,
+        skillsPossessed: ["Python Scientific Stack (NumPy/Pandas)", "Model Training & Evaluation", "Data Cleaning"],
+        skillsToLearn: ["PyTorch / HuggingFace Transformers", "Vector Databases (Chroma/Pinecone)", "MLOps & Model Deployment"],
+        description: "Train, evaluate, and fine-tune machine learning and NLP models, clean complex datasets, and build intelligent features.",
+        projectIdeas: [
+          "RAG (Retrieval-Augmented Generation) Document Search engine using LangChain and Vector DB",
+          "Computer Vision Object Detection / Image Classifier deployed as a web service"
+        ],
+        searchKeywords: "Machine Learning Intern"
+      },
+      {
+        id: "data-analytics-intern",
+        title: "Data Analyst / Data Engineer Intern",
+        type: "Internship",
+        category: "AI & Data Science",
+        primaryLangs: ["Python", "R", "SQL", "Julia"],
+        keywords: ["pandas", "numpy", "matplotlib", "seaborn", "sql", "tableau", "spark", "etl"],
+        baseMatch: 76,
+        skillsPossessed: ["Data Wrangling & Analysis", "SQL Querying", "Data Visualization"],
+        skillsToLearn: ["ETL Pipeline Orchestration", "dbt / Apache Spark", "Cloud Data Warehouses (BigQuery/Snowflake)"],
+        description: "Extract insights from complex datasets, build automated ETL data pipelines, and design business intelligence dashboards.",
+        projectIdeas: [
+          "Automated GitHub Trends ETL Pipeline and interactive visualization dashboard",
+          "Predictive Customer Churn / Financial Analysis with interactive Streamlit app"
+        ],
+        searchKeywords: "Data Analyst Internship"
+      },
+      {
+        id: "mobile-dev-intern",
+        title: "Mobile App Developer Intern (iOS/Android/Flutter)",
+        type: "Internship",
+        category: "Mobile Development",
+        primaryLangs: ["Dart", "Kotlin", "Swift", "Java", "JavaScript", "TypeScript"],
+        keywords: ["flutter", "react native", "android", "ios", "swiftui", "jetpack compose"],
+        baseMatch: 80,
+        skillsPossessed: ["Mobile UI Development", "State Management", "REST API Consumption"],
+        skillsToLearn: ["Offline-First Storage / SQLite", "Native Platform APIs & Notifications", "App Store / Play Store Deployment"],
+        description: "Build fluid, cross-platform or native mobile applications with responsive layouts and offline sync.",
+        projectIdeas: [
+          "Habit Tracker & Productivity Mobile App with local SQLite and push notifications",
+          "Social Fitness / Workout Tracking App with camera integration and cloud backup"
+        ],
+        searchKeywords: "Mobile App Developer Internship"
+      },
+      {
+        id: "backend-go-rust-intern",
+        title: "Systems & Backend Intern (Go / Rust / C++)",
+        type: "Internship",
+        category: "Systems & Cloud",
+        primaryLangs: ["Go", "Rust", "C++", "C"],
+        keywords: ["goroutines", "concurrency", "grpc", "tokio", "memory management", "systems", "microservices"],
+        baseMatch: 84,
+        skillsPossessed: ["Strong Type Systems", "Concurrency & Multithreading", "Memory Efficiency"],
+        skillsToLearn: ["gRPC & Protocol Buffers", "High-throughput Networking", "Distributed Systems Patterns"],
+        description: "Build blazing-fast, low-latency microservices, CLI tools, and network daemons with strict memory and CPU budgets.",
+        projectIdeas: [
+          "Custom In-Memory Key-Value Database with custom wire protocol (like Redis)",
+          "High-Throughput Reverse Proxy / Load Balancer with health checks"
+        ],
+        searchKeywords: "Go Backend Developer Internship"
+      },
+      {
+        id: "devops-cloud-intern",
+        title: "DevOps & Cloud Infrastructure Intern",
+        type: "Internship",
+        category: "Systems & Cloud",
+        primaryLangs: ["Shell", "Python", "Go", "HCL", "Dockerfile"],
+        keywords: ["docker", "kubernetes", "aws", "terraform", "ci/cd", "github actions", "linux", "bash"],
+        baseMatch: 75,
+        skillsPossessed: ["Linux & Bash Scripting", "Git & GitHub Actions", "Containerization (Docker)"],
+        skillsToLearn: ["Kubernetes Orchestration", "Terraform (IaC)", "Prometheus & Grafana Monitoring"],
+        description: "Automate deployment pipelines, orchestrate containerized workloads, and ensure high availability and security of cloud infrastructure.",
+        projectIdeas: [
+          "Automated Multi-Stage CI/CD Pipeline deploying microservices to Kubernetes",
+          "Infrastructure as Code (Terraform) blueprint provisioning complete AWS VPC with monitoring"
+        ],
+        searchKeywords: "DevOps Cloud Intern"
+      },
+      {
+        id: "java-backend-intern",
+        title: "Java / Enterprise Backend Intern",
+        type: "Internship",
+        category: "Backend & APIs",
+        primaryLangs: ["Java", "Kotlin", "C#"],
+        keywords: ["spring boot", "spring", "hibernate", "maven", "gradle", ".net", "asp.net"],
+        baseMatch: 78,
+        skillsPossessed: ["Object-Oriented Design", "Java / Spring Framework", "Relational Databases"],
+        skillsToLearn: ["Spring Security & JWT", "Microservices with Spring Cloud", "Kafka Message Queues"],
+        description: "Build enterprise-grade REST APIs, maintain business logic, and handle large-scale database operations.",
+        projectIdeas: [
+          "Banking / Payment Gateway Simulation API with Spring Boot and PostgreSQL",
+          "Event-driven Order Processing System with Apache Kafka and Spring Boot"
+        ],
+        searchKeywords: "Java Spring Boot Internship"
+      },
+      {
+        id: "open-source-fellow",
+        title: "Open Source Software Engineering Fellow",
+        type: "Fellowship / Remote",
+        category: "Open Source",
+        primaryLangs: ["JavaScript", "TypeScript", "Python", "Rust", "Go", "C++", "Java"],
+        keywords: ["git", "github", "open source", "documentation", "testing"],
+        baseMatch: 70,
+        skillsPossessed: ["Git Version Control", "Code Review & Collaboration", "Public Documentation"],
+        skillsToLearn: ["Large Codebase Navigation", "Upstream Patching & RFCs", "Community Issue Triage"],
+        description: "Contribute to global open-source ecosystems, resolve community bug reports, and architect modular software libraries.",
+        projectIdeas: [
+          "Published Open-Source NPM/PyPI Utility Library with 100% test coverage and automated releases",
+          "Contribution record with 3+ merged Pull Requests to major open-source repositories"
+        ],
+        searchKeywords: "Open Source Software Fellowship"
+      }
+    ],
+    analyzeCareer(profileData) {
+      const { profile, repos, langStats, commits, streaks, techStack = [] } = profileData;
+      const topLangs = (langStats || []).map((l) => l.name);
+      const topLangPcts = {};
+      (langStats || []).forEach((l) => {
+        topLangPcts[l.name] = l.pct;
+      });
+      const repoCorpus = (repos || []).map((r) => `${r.name} ${r.description || ""}`).join(" ").toLowerCase();
+      const techStackLower = (techStack || []).map((t) => t.toLowerCase());
+      const matchedRoles = this.ROLES_CATALOG.map((role) => {
+        let score = 0;
+        let matchedReasons = [];
+        let langWeight = 0;
+        role.primaryLangs.forEach((lang) => {
+          if (topLangs.includes(lang)) {
+            const pct = topLangPcts[lang] || 0;
+            langWeight += pct / 100 * 45;
+            matchedReasons.push(`Strong code footprint in **${lang}** (${pct.toFixed(0)}%)`);
+          }
+        });
+        score += Math.min(langWeight, 50);
+        let keywordHits = 0;
+        role.keywords.forEach((kw) => {
+          if (repoCorpus.includes(kw) || techStackLower.includes(kw)) {
+            keywordHits++;
+          }
+        });
+        const kwScore = Math.min(keywordHits * 7, 30);
+        score += kwScore;
+        if (keywordHits > 0) {
+          matchedReasons.push(`Detected related repositories and tooling matching **${role.category}**`);
+        }
+        const repoCount = repos ? repos.length : 0;
+        const commitCount = commits ? commits.length : 0;
+        if (repoCount >= 5) score += 5;
+        if (repoCount >= 15) score += 5;
+        if (commitCount >= 30) score += 5;
+        if (streaks && streaks.totalActive >= 10) score += 5;
+        const hasLangMatch = role.primaryLangs.some((l) => topLangs.includes(l));
+        if (hasLangMatch && score < 60) {
+          score = 60 + Math.floor(Math.random() * 15);
+        } else if (!hasLangMatch) {
+          score = Math.max(25, Math.min(score, 55));
+        }
+        const finalMatchPct = Math.min(Math.round(score), 98);
+        return {
+          ...role,
+          matchPct: finalMatchPct,
+          reasons: matchedReasons.length > 0 ? matchedReasons : [`Compatible with your polyglot developer foundations.`],
+          links: {
+            linkedin: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(role.searchKeywords)}`,
+            indeed: `https://www.indeed.com/jobs?q=${encodeURIComponent(role.searchKeywords)}`,
+            wellfound: `https://wellfound.com/jobs?query=${encodeURIComponent(role.searchKeywords)}`,
+            google: `https://www.google.com/search?q=${encodeURIComponent(role.searchKeywords + " jobs")}`
+          }
+        };
+      });
+      matchedRoles.sort((a, b) => b.matchPct - a.matchPct);
+      const archetype = this._calculateArchetype(topLangs, techStackLower, repos);
+      const readiness = this._calculateReadiness(profile, repos, commits, streaks, (langStats || []).length);
+      return {
+        archetype,
+        readiness,
+        topLanguages: topLangs.slice(0, 4),
+        matchedRoles,
+        topMatchedRole: matchedRoles[0],
+        totalRolesAnalyzed: this.ROLES_CATALOG.length
+      };
+    },
+    _calculateArchetype(topLangs, techStack, repos) {
+      const langs = topLangs.map((l) => l.toLowerCase());
+      if (langs.includes("python") && (langs.includes("r") || techStack.includes("tensorflow") || techStack.includes("pytorch") || techStack.includes("pandas"))) {
+        return {
+          title: "AI & Data Science Specialist",
+          tagline: "Excels at building intelligent algorithms, analyzing large datasets, and deploying machine learning models.",
+          badge: "🤖 AI / ML Domain",
+          color: "#9f7aea"
+        };
+      }
+      if ((langs.includes("javascript") || langs.includes("typescript")) && (langs.includes("html") || techStack.includes("react") || techStack.includes("vue") || techStack.includes("next.js"))) {
+        if (langs.includes("python") || langs.includes("go") || langs.includes("java") || techStack.includes("node.js")) {
+          return {
+            title: "Full-Stack Web Architect",
+            tagline: "Versatile across modern frontend user experiences and scalable server-side REST APIs.",
+            badge: "⚡ Full-Stack Domain",
+            color: "#5b6af0"
+          };
+        }
+        return {
+          title: "Frontend UI/UX Specialist",
+          tagline: "Focuses on craft, fluid user interactions, component architectures, and responsive design systems.",
+          badge: "🎨 Frontend Domain",
+          color: "#38c97a"
+        };
+      }
+      if (langs.includes("go") || langs.includes("rust") || langs.includes("c++") || langs.includes("c")) {
+        return {
+          title: "Systems & Performance Engineer",
+          tagline: "Specializes in high-throughput backends, memory-safe code, and low-latency infrastructure.",
+          badge: "⚙️ Systems Domain",
+          color: "#f79824"
+        };
+      }
+      if (langs.includes("dart") || langs.includes("kotlin") || langs.includes("swift")) {
+        return {
+          title: "Mobile Application Creator",
+          tagline: "Passionate about mobile ecosystems, touch-first ergonomics, and cross-platform native apps.",
+          badge: "📱 Mobile Domain",
+          color: "#ed64a6"
+        };
+      }
+      if (langs.length >= 3) {
+        return {
+          title: "Polyglot Software Engineer",
+          tagline: "Adaptable problem-solver proficient across multiple programming paradigms and runtimes.",
+          badge: "🌐 Polyglot Domain",
+          color: "#38b2ac"
+        };
+      }
+      return {
+        title: "Software Engineering Explorer",
+        tagline: "Building versatile software foundations and actively expanding repository portfolio.",
+        badge: "🚀 Core Engineering",
+        color: "#5b6af0"
+      };
+    },
+    _calculateReadiness(profile, repos, commits, streaks, langCount) {
+      const repoCount = (repos || []).length;
+      const commitCount = (commits || []).length;
+      const totalStars = (repos || []).reduce((acc, r) => acc + (r.stars || 0), 0);
+      const activeDays = streaks ? streaks.totalActive : 0;
+      let score = 40;
+      if (repoCount >= 3) score += 10;
+      if (repoCount >= 8) score += 10;
+      if (commitCount >= 20) score += 10;
+      if (commitCount >= 60) score += 10;
+      if (activeDays >= 10) score += 10;
+      if (totalStars >= 5) score += 5;
+      if (langCount >= 2) score += 5;
+      score = Math.min(score, 100);
+      let level = "Internship Ready";
+      let badgeClass = "readiness-intern";
+      let desc = "You have active code projects and core language foundations ready to secure competitive software internships.";
+      if (score >= 85) {
+        level = "Junior / Associate Engineer Ready";
+        badgeClass = "readiness-junior";
+        desc = "Your GitHub portfolio demonstrates substantial project variety, strong version control cadence, and production readiness.";
+      } else if (score >= 65) {
+        level = "Strong Internship & Project Candidate";
+        badgeClass = "readiness-strong";
+        desc = "Solid repository base and consistent commits. Adding 1-2 featured full-stack projects will elevate your recruiter callback rate.";
+      }
+      return { score, level, badgeClass, desc };
+    },
+    async generateAiCareerStrategy(role, profileData) {
+      const apiKey = CONFIG.GEMINI_API_KEY;
+      const { profile, langStats, repos } = profileData;
+      const username = profile?.login || "Developer";
+      const topLangs = (langStats || []).slice(0, 3).map((l) => l.name).join(", ");
+      const topRepos = (repos || []).slice(0, 3).map((r) => r.name).join(", ");
+      if (!apiKey || !apiKey.trim()) {
+        return this._fallbackStrategy(role, username, topLangs, topRepos);
+      }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey}`;
+      const prompt = `You are an elite Tech Career Coach and Hiring Manager.
+Provide a hyper-tailored job application and interview preparation blueprint for developer @${username} targeting the role: "${role.title}".
+Their top languages are: ${topLangs}.
+Their top repositories are: ${topRepos}.
+
+Return a JSON object with this EXACT structure (no markdown fences, just pure JSON):
+{
+  "elevatorPitch": "A punchy, 2-sentence introduction for recruiters highlighting their exact GitHub experience.",
+  "resumeBulletPoints": [
+    "Action-driven resume bullet point incorporating one of their repositories",
+    "Second strong bullet point emphasizing technical problem-solving and scalability"
+  ],
+  "interviewQuestions": [
+    { "q": "Technical interview question tailored to this role and their tech stack", "tip": "How they should answer using their GitHub projects as proof" },
+    { "q": "Second behavioral or system question", "tip": "Strategic answer tip" }
+  ],
+  "breakthroughAction": "The single most impactful project or skill addition they should make this week."
+}`;
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.7 }
+          })
+        });
+        if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
+        const data = await resp.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const clean = text.replace(/```json?/gi, "").replace(/```/g, "").trim();
+        return JSON.parse(clean);
+      } catch (err) {
+        console.warn("Using fallback career strategy:", err);
+        return this._fallbackStrategy(role, username, topLangs, topRepos);
+      }
+    },
+    _fallbackStrategy(role, username, topLangs, topRepos) {
+      return {
+        elevatorPitch: `Passionate developer proficient in ${topLangs || "modern software technologies"}, with demonstrated practical experience building public projects such as ${topRepos || "featured GitHub repositories"}. Ready to deliver immediate impact as a ${role.title}.`,
+        resumeBulletPoints: [
+          `Architected and deployed open-source projects using ${topLangs || "modern software stack"}, implementing clean modular architecture and responsive state management.`,
+          `Maintained active Git version control workflows, implementing RESTful API integrations and optimized algorithms across ${topRepos || "core repositories"}.`
+        ],
+        interviewQuestions: [
+          {
+            q: `How have you structured your projects in ${topLangs.split(",")[0] || "your primary language"} to ensure clean maintainability?`,
+            tip: `Reference one of your top repositories (${topRepos.split(",")[0] || "your main repo"}), explain the folder structure, component/service separation, and how you handled error states.`
+          },
+          {
+            q: `Describe a technical hurdle you encountered while building your GitHub projects and how you debugged it.`,
+            tip: `Use the STAR method (Situation, Task, Action, Result) focusing on your debugging strategy and metrics improvement.`
+          }
+        ],
+        breakthroughAction: `Build and deploy the recommended portfolio project: "${role.projectIdeas[0]}" with live demo link and comprehensive README to stand out immediately to recruiters.`
+      };
     }
   };
 
@@ -1577,6 +2059,160 @@ Return ONLY raw JSON. No markdown backticks.`;
     }
   }
 
+  function renderCareerSection(careerData, onGenerateStrategy) {
+    if (!careerData) return;
+
+    const { archetype, readiness, topLanguages, matchedRoles } = careerData;
+
+    // 1. Archetype Banner
+    const archBadge = $("career-archetype-badge");
+    const archTitle = $("career-archetype-title");
+    const archTagline = $("career-archetype-tagline");
+    if (archBadge) {
+      archBadge.textContent = archetype.badge;
+      archBadge.style.color = archetype.color;
+      archBadge.style.borderColor = archetype.color + "40";
+    }
+    if (archTitle) archTitle.textContent = archetype.title;
+    if (archTagline) archTagline.textContent = archetype.tagline;
+
+    // 2. Readiness Meter
+    const readBadge = $("career-readiness-badge");
+    const readScore = $("career-readiness-score");
+    const readDesc = $("career-readiness-desc");
+    if (readBadge) readBadge.textContent = readiness.level;
+    if (readScore) readScore.textContent = readiness.score;
+    if (readDesc) readDesc.textContent = readiness.desc;
+
+    // 3. Language Pills
+    const langPills = $("career-lang-pills");
+    if (langPills) {
+      langPills.innerHTML = (topLanguages || []).map(
+        (lang) => `<span class="career-lang-pill">
+          <span class="lang-dot" style="background:${getLangColor(lang)}"></span>
+          <span>${escapeHtml(lang)}</span>
+        </span>`
+      ).join("");
+    }
+
+    // 4. Tab Counts
+    const internCount = matchedRoles.filter((r) => r.type.includes("Internship")).length;
+    const juniorCount = matchedRoles.filter((r) => r.type.includes("Junior") || r.type.includes("Entry")).length;
+    if ($("career-count-all")) $("career-count-all").textContent = matchedRoles.length;
+    if ($("career-count-intern")) $("career-count-intern").textContent = internCount;
+    if ($("career-count-junior")) $("career-count-junior").textContent = juniorCount;
+
+    // 5. Render Filtered Role Cards
+    function renderRoles(filter = "all") {
+      const grid = $("career-roles-grid");
+      if (!grid) return;
+
+      let list = [...matchedRoles];
+      if (filter === "Internship") {
+        list = list.filter((r) => r.type.includes("Internship"));
+      } else if (filter === "Junior") {
+        list = list.filter((r) => r.type.includes("Junior") || r.type.includes("Entry"));
+      } else if (filter === "high-match") {
+        list = list.filter((r) => r.matchPct >= 80);
+      }
+
+      if (list.length === 0) {
+        grid.innerHTML = `<div class="neu-card" style="padding: 30px; text-align: center; grid-column: 1 / -1;">
+          <p style="color: var(--text-secondary);">No roles found for this filter. Try viewing All Roles.</p>
+        </div>`;
+        return;
+      }
+
+      grid.innerHTML = list.map((role, idx) => `
+        <div class="career-role-card neu-card" style="animation-delay: ${idx * 60}ms;">
+          <div>
+            <div class="career-role-header">
+              <div>
+                <h3 class="career-role-title">${escapeHtml(role.title)}</h3>
+                <span class="career-role-type">${escapeHtml(role.type)} • ${escapeHtml(role.category)}</span>
+              </div>
+              <div class="career-match-badge">
+                <span class="career-match-pct">${role.matchPct}%</span>
+                <span class="career-match-label">Match</span>
+              </div>
+            </div>
+
+            <div class="career-match-bar-track">
+              <div class="career-match-bar-fill" style="width: ${role.matchPct}%;"></div>
+            </div>
+
+            <p class="career-role-desc">${escapeHtml(role.description)}</p>
+
+            <div class="career-skills-wrap">
+              <div class="career-section-label">Skills You Have</div>
+              <div class="career-skills-list" style="margin-bottom: 8px;">
+                ${role.skillsPossessed.map((s) => `<span class="career-skill-tag possessed">✓ ${escapeHtml(s)}</span>`).join("")}
+              </div>
+              <div class="career-section-label">High-Impact Skills to Add</div>
+              <div class="career-skills-list">
+                ${role.skillsToLearn.map((s) => `<span class="career-skill-tag to-learn">+ ${escapeHtml(s)}</span>`).join("")}
+              </div>
+            </div>
+
+            <div class="career-projects-wrap">
+              <div class="career-section-label">Recommended Portfolio Projects</div>
+              ${role.projectIdeas.map((p) => `
+                <div class="career-project-item">
+                  <span class="career-project-bullet">⚡</span>
+                  <span>${escapeHtml(p)}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="career-actions-row">
+            <button class="neu-button primary small btn-generate-strategy" data-role-id="${role.id}" style="width: 100%;">
+              🤖 Generate AI Job Strategy
+            </button>
+            
+            <div class="career-search-links">
+              <a href="${role.links.linkedin}" target="_blank" rel="noopener noreferrer" class="career-job-link linkedin" title="Search on LinkedIn">
+                <span>LinkedIn</span> ↗
+              </a>
+              <a href="${role.links.indeed}" target="_blank" rel="noopener noreferrer" class="career-job-link indeed" title="Search on Indeed">
+                <span>Indeed</span> ↗
+              </a>
+              <a href="${role.links.wellfound}" target="_blank" rel="noopener noreferrer" class="career-job-link wellfound" title="Search Startups on Wellfound">
+                <span>Wellfound</span> ↗
+              </a>
+              <a href="${role.links.google}" target="_blank" rel="noopener noreferrer" class="career-job-link" title="Search on Google Jobs">
+                <span>Google</span> ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+      // Attach strategy button listeners
+      grid.querySelectorAll(".btn-generate-strategy").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const roleId = btn.dataset.roleId;
+          const targetRole = matchedRoles.find((r) => r.id === roleId);
+          if (targetRole && onGenerateStrategy) {
+            onGenerateStrategy(targetRole);
+          }
+        });
+      });
+    }
+
+    // Initial render
+    renderRoles("all");
+
+    // Filter tabs listeners
+    document.querySelectorAll(".career-tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".career-tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderRoles(btn.dataset.filter);
+      });
+    });
+  }
+
   // js/app.js
   function showError(code, customMessage) {
     const messages = {
@@ -1924,6 +2560,16 @@ Return ONLY raw JSON. No markdown backticks.`;
       };
       state.insights = await InsightsEngine.analyze(analysisData);
       setStep("insights", true);
+
+      state.career = CareerMatcher.analyzeCareer({
+        profile: state.profile,
+        repos: state.repos,
+        langStats,
+        commits: state.commits,
+        streaks,
+        techStack: state.techStack,
+      });
+
       setStatus("Preparing dashboard presentation...");
       renderProfile(state.profile);
       renderStats(stats, streaks);
@@ -1935,6 +2581,7 @@ Return ONLY raw JSON. No markdown backticks.`;
       renderTechStack(state.techStack);
       renderInsights(state.insights);
       JobsManager.runJobMatcher();
+      renderCareerSection(state.career, handleGenerateStrategy);
       ChatEngine.setContext({ ...analysisData, profile: state.profile });
       await new Promise((r) => setTimeout(r, 400));
       hideEl($("loading-screen"));
@@ -1947,7 +2594,86 @@ Return ONLY raw JSON. No markdown backticks.`;
       showError(err.code, err.message);
     }
   }
+
+  async function handleGenerateStrategy(role) {
+    const modal = $("ai-strategy-modal");
+    const title = $("strategy-role-title");
+    const sub = $("strategy-role-subtitle");
+    const content = $("ai-strategy-content");
+    if (!modal || !content) return;
+
+    showEl(modal);
+    if (title) title.textContent = `${role.title} — AI Application Blueprint`;
+    if (sub) sub.textContent = `Targeting ${role.category} • Match ${role.matchPct}%`;
+
+    content.innerHTML = `
+      <div class="insight-loading neu-card" style="margin: 20px 0;">
+        <div class="insight-spinner" aria-hidden="true"></div>
+        <p>Generating personalized application pitch, resume highlights & interview questions...</p>
+      </div>
+    `;
+
+    try {
+      const langStats = DataProcessor.getLanguageStats(state.languages);
+      const strategy = await CareerMatcher.generateAiCareerStrategy(role, {
+        profile: state.profile,
+        langStats,
+        repos: state.repos,
+      });
+
+      content.innerHTML = `
+        <div class="strategy-block">
+          <div class="strategy-block-title">🎯 Recruiter Elevator Pitch</div>
+          <div class="strategy-box">
+            <p>${strategy.elevatorPitch}</p>
+          </div>
+        </div>
+
+        <div class="strategy-block">
+          <div class="strategy-block-title">📄 High-Impact Resume Bullet Points</div>
+          <div class="strategy-box">
+            <ul class="strategy-bullet-list">
+              ${(strategy.resumeBulletPoints || []).map((bp) => `<li>${bp}</li>`).join("")}
+            </ul>
+          </div>
+        </div>
+
+        <div class="strategy-block">
+          <div class="strategy-block-title">💬 Technical & Behavioral Interview Prep</div>
+          <div class="strategy-box">
+            ${(strategy.interviewQuestions || []).map((iq) => `
+              <div style="margin-bottom: 12px;">
+                <strong style="color: var(--text-primary);">Q: ${iq.q}</strong>
+                <p style="margin-top: 4px; color: var(--text-secondary); font-size: 0.82rem;">💡 <em>Strategy:</em> ${iq.tip}</p>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <div class="strategy-block" style="margin-bottom: 0;">
+          <div class="strategy-block-title">🚀 Fast-Track Action to Stand Out</div>
+          <div class="strategy-box" style="border-left: 3px solid var(--accent);">
+            <p><strong>${strategy.breakthroughAction}</strong></p>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      content.innerHTML = `<p style="color: var(--red);">Could not generate strategy at this time. Please try again.</p>`;
+    }
+  }
+
   function init() {
+    $("btn-career-match")?.addEventListener("click", () => { JobsManager.runJobMatcher(); });
+    $("btn-career-hub")?.addEventListener("click", () => { showSection("career"); });
+    $("btn-career-ideas")?.addEventListener("click", () => { showSection("career"); });
+    $("btn-career-ask-ai")?.addEventListener("click", () => {
+      ChatEngine.isOpen = false;
+      ChatEngine.toggle();
+      ChatEngine.sendMessage("Based on my top languages and repositories, what specific software engineering jobs or internships should I apply for, and what portfolio projects will help me get hired?");
+    });
+    $("strategy-modal-close")?.addEventListener("click", () => { hideEl($("ai-strategy-modal")); });
+    $("ai-strategy-modal")?.addEventListener("click", (e) => { if (e.target === $("ai-strategy-modal")) hideEl($("ai-strategy-modal")); });
+
     $("btn-roast")?.addEventListener("click", () => {
       ChatEngine.isOpen = false;
       ChatEngine.toggle();

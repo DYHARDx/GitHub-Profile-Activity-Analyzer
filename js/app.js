@@ -8,11 +8,13 @@ import { ChatEngine } from './chat.js';
 import { ResumeManager } from './resume.js';
 import { TradingCardManager } from './trading-card.js';
 import { JobsManager } from './jobs.js';
+import { CareerMatcher } from './career.js';
 import { ApiClient, InsightsEngine } from './api.js';
 import { DataProcessor } from './data.js';
 import {
   setStep, setStatus, renderProfile, renderStats, renderScore, renderStreakMini,
-  renderActivity, renderRepoHighlights, renderRepositories, renderLanguages, renderInsights, renderTechStack
+  renderActivity, renderRepoHighlights, renderRepositories, renderLanguages, renderInsights, renderTechStack,
+  renderCareerSection
 } from './ui.js';
 
 function showError(code, customMessage) {
@@ -389,6 +391,15 @@ async function analyzeProfile(rawUsername) {
     state.insights = await InsightsEngine.analyze(analysisData);
     setStep('insights', true);
 
+    state.career = CareerMatcher.analyzeCareer({
+      profile: state.profile,
+      repos: state.repos,
+      langStats,
+      commits: state.commits,
+      streaks,
+      techStack: state.techStack,
+    });
+
     setStatus('Preparing dashboard presentation...');
     renderProfile(state.profile);
     renderStats(stats, streaks);
@@ -399,7 +410,11 @@ async function analyzeProfile(rawUsername) {
     renderLanguages(langStats);
     renderTechStack(state.techStack);
     renderInsights(state.insights);
+<<<<<<< HEAD
     JobsManager.runJobMatcher();
+=======
+    renderCareerSection(state.career, handleGenerateStrategy);
+>>>>>>> 13a6262 (Add AI Career, Job & Internship Idea Matcher feature)
 
     ChatEngine.setContext({ ...analysisData, profile: state.profile });
 
@@ -416,7 +431,85 @@ async function analyzeProfile(rawUsername) {
   }
 }
 
+async function handleGenerateStrategy(role) {
+  const modal = $('ai-strategy-modal');
+  const title = $('strategy-role-title');
+  const sub = $('strategy-role-subtitle');
+  const content = $('ai-strategy-content');
+  if (!modal || !content) return;
+
+  showEl(modal);
+  if (title) title.textContent = `${role.title} — AI Application Blueprint`;
+  if (sub) sub.textContent = `Targeting ${role.category} • Match ${role.matchPct}%`;
+
+  content.innerHTML = `
+    <div class="insight-loading neu-card" style="margin: 20px 0;">
+      <div class="insight-spinner" aria-hidden="true"></div>
+      <p>Generating personalized application pitch, resume highlights & interview questions...</p>
+    </div>
+  `;
+
+  try {
+    const langStats = DataProcessor.getLanguageStats(state.languages);
+    const strategy = await CareerMatcher.generateAiCareerStrategy(role, {
+      profile: state.profile,
+      langStats,
+      repos: state.repos,
+    });
+
+    content.innerHTML = `
+      <div class="strategy-block">
+        <div class="strategy-block-title">🎯 Recruiter Elevator Pitch</div>
+        <div class="strategy-box">
+          <p>${strategy.elevatorPitch}</p>
+        </div>
+      </div>
+
+      <div class="strategy-block">
+        <div class="strategy-block-title">📄 High-Impact Resume Bullet Points</div>
+        <div class="strategy-box">
+          <ul class="strategy-bullet-list">
+            ${(strategy.resumeBulletPoints || []).map(bp => `<li>${bp}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+
+      <div class="strategy-block">
+        <div class="strategy-block-title">💬 Technical & Behavioral Interview Prep</div>
+        <div class="strategy-box">
+          ${(strategy.interviewQuestions || []).map(iq => `
+            <div style="margin-bottom: 12px;">
+              <strong style="color: var(--text-primary);">Q: ${iq.q}</strong>
+              <p style="margin-top: 4px; color: var(--text-secondary); font-size: 0.82rem;">💡 <em>Strategy:</em> ${iq.tip}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="strategy-block" style="margin-bottom: 0;">
+        <div class="strategy-block-title">🚀 Fast-Track Action to Stand Out</div>
+        <div class="strategy-box" style="border-left: 3px solid var(--accent);">
+          <p><strong>${strategy.breakthroughAction}</strong></p>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = `<p style="color: var(--red);">Could not generate strategy at this time. Please try again.</p>`;
+  }
+}
+
 function init() {
+  $('btn-career-match')?.addEventListener('click', () => { JobsManager.runJobMatcher(); });
+  $('btn-career-hub')?.addEventListener('click', () => { showSection('career'); });
+  $('btn-career-ideas')?.addEventListener('click', () => { showSection('career'); });
+  $('btn-career-ask-ai')?.addEventListener('click', () => {
+    ChatEngine.isOpen = false;
+    ChatEngine.toggle();
+    ChatEngine.sendMessage('Based on my top languages and repositories, what specific software engineering jobs or internships should I apply for, and what portfolio projects will help me get hired?');
+  });
+  $('strategy-modal-close')?.addEventListener('click', () => { hideEl($('ai-strategy-modal')); });
+  $('ai-strategy-modal')?.addEventListener('click', (e) => { if (e.target === $('ai-strategy-modal')) hideEl($('ai-strategy-modal')); });
+
   $('btn-roast')?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Please roast my GitHub profile based on my stats. Be extremely sarcastic, funny, and ruthless about my commits, languages, and repos. Do not hold back.'); });
   $('btn-career-pred')?.addEventListener('click', () => { ChatEngine.isOpen = false; ChatEngine.toggle(); ChatEngine.sendMessage('Based on my top programming languages and GitHub stats, predict what technology, framework, or language I should learn next to level up my career. Give me a structured learning path.'); });
 

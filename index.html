@@ -150,6 +150,10 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12h4l3-9 5 18 3-9h5"></path></svg>
           <span>Insights</span>
         </button>
+        <button class="nav-item" data-section="career" aria-label="Career & Internships">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+          <span>Career & Jobs</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
         <button id="sidebar-new-search" class="neu-button" style="width: 100%; justify-content: flex-start; background: var(--bg); border: 1px solid var(--shadow-dark); box-shadow: none;">
@@ -204,7 +208,8 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 10px;">
           <h2 id="overview-heading" class="section-heading" style="margin-bottom: 0;">Analytics Overview</h2>
-          <div style="display: flex; gap: 10px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-career-hub" class="neu-button secondary small" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> Career & Jobs</button>
             <button id="btn-trading-card" class="neu-button primary small" type="button" style="background: linear-gradient(135deg, #a855f7, #ec4899);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Trading Card</button>
             <button id="btn-resume" class="neu-button secondary small" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Generate Resume</button>
           </div>
@@ -430,7 +435,8 @@
         <h2 id="insights-heading" class="section-heading">Developer Insights</h2>
         <p class="insights-disclaimer">Insights are derived from measured GitHub activity data only. No subjective
           claims are made about ability, intelligence, or career.</p>
-        <div class="ai-actions-row" style="display: flex; gap: 10px; margin: 15px 0;">
+        <div class="ai-actions-row" style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;">
+          <button id="btn-career-ideas" class="neu-button primary">💼 Job & Internship Matcher</button>
           <button id="btn-roast" class="neu-button secondary">🔥 Roast My GitHub</button>
           <button id="btn-career-pred" class="neu-button secondary">💡 What to Learn Next?</button>
         </div>
@@ -438,6 +444,74 @@
           <div class="insight-loading neu-card">
             <div class="insight-spinner" aria-hidden="true"></div>
             <p>Generating insights from activity data...</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-section" id="section-career" aria-labelledby="career-heading">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+          <div>
+            <h2 id="career-heading" class="section-heading" style="margin-bottom: 4px;">Career & Internship Radar</h2>
+            <p class="insights-disclaimer" style="margin-bottom: 0;">Matched opportunities, portfolio project blueprints, and hiring potential based on your repositories & languages.</p>
+          </div>
+          <button id="btn-career-ask-ai" class="neu-button primary small">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z"></path><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+            Ask AI Career Coach
+          </button>
+        </div>
+
+        <!-- Career Profile Summary Card -->
+        <div class="career-summary-card neu-card" id="career-summary-card">
+          <div class="career-summary-header">
+            <div class="career-archetype-wrap">
+              <span class="career-archetype-badge" id="career-archetype-badge">Domain</span>
+              <h3 class="career-archetype-title" id="career-archetype-title">Analyzing profile...</h3>
+              <p class="career-archetype-tagline" id="career-archetype-tagline">Evaluating your GitHub commit cadence and repositories</p>
+            </div>
+            <div class="career-readiness-wrap">
+              <div class="career-readiness-badge" id="career-readiness-badge">Internship Ready</div>
+              <div class="career-score-meter">
+                <span class="career-score-num" id="career-readiness-score">--</span>
+                <span class="career-score-label">Readiness Score</span>
+              </div>
+            </div>
+          </div>
+          <p class="career-readiness-desc" id="career-readiness-desc"></p>
+          <div class="career-lang-pills" id="career-lang-pills"></div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="career-filters-bar">
+          <div class="career-filter-tabs" role="tablist">
+            <button class="career-tab-btn active" data-filter="all" role="tab" type="button">All Roles (<span id="career-count-all">0</span>)</button>
+            <button class="career-tab-btn" data-filter="Internship" role="tab" type="button">🎓 Internships (<span id="career-count-intern">0</span>)</button>
+            <button class="career-tab-btn" data-filter="Junior" role="tab" type="button">💼 Junior / Entry (<span id="career-count-junior">0</span>)</button>
+            <button class="career-tab-btn" data-filter="high-match" role="tab" type="button">🔥 High Match (80%+)</button>
+          </div>
+        </div>
+
+        <!-- Role Match Cards Grid -->
+        <div class="career-roles-grid" id="career-roles-grid"></div>
+
+        <!-- AI Job Strategy Modal / Output Drawer -->
+        <div id="ai-strategy-modal" class="ai-strategy-modal" hidden>
+          <div class="ai-strategy-card neu-card">
+            <div class="ai-strategy-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.4rem;">🤖</span>
+                <div>
+                  <h3 id="strategy-role-title" style="font-size: 1.1rem; font-weight: 700;">AI Application & Interview Blueprint</h3>
+                  <p id="strategy-role-subtitle" style="font-size: 0.85rem; color: var(--text-secondary);">Customized for your GitHub profile</p>
+                </div>
+              </div>
+              <button id="strategy-modal-close" class="icon-btn" aria-label="Close Strategy">×</button>
+            </div>
+            <div class="ai-strategy-content" id="ai-strategy-content">
+              <div class="insight-loading neu-card" style="margin: 20px 0;">
+                <div class="insight-spinner" aria-hidden="true"></div>
+                <p>Generating personalized resume bullet points & interview questions...</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

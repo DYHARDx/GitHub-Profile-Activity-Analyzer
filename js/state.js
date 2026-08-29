@@ -10,4 +10,5 @@ export const state = {
   period: 'all',
   insights: null,
   techStack: [],
+  career: null,
 };

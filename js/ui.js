@@ -614,3 +614,158 @@ export function renderTechStack(techStack) {
     container.style.display = 'none';
   }
 }
+
+export function renderCareerSection(careerData, onGenerateStrategy) {
+  if (!careerData) return;
+
+  const { archetype, readiness, topLanguages, matchedRoles } = careerData;
+
+  // 1. Archetype Banner
+  const archBadge = $('career-archetype-badge');
+  const archTitle = $('career-archetype-title');
+  const archTagline = $('career-archetype-tagline');
+  if (archBadge) {
+    archBadge.textContent = archetype.badge;
+    archBadge.style.color = archetype.color;
+    archBadge.style.borderColor = archetype.color + '40';
+  }
+  if (archTitle) archTitle.textContent = archetype.title;
+  if (archTagline) archTagline.textContent = archetype.tagline;
+
+  // 2. Readiness Meter
+  const readBadge = $('career-readiness-badge');
+  const readScore = $('career-readiness-score');
+  const readDesc = $('career-readiness-desc');
+  if (readBadge) readBadge.textContent = readiness.level;
+  if (readScore) readScore.textContent = readiness.score;
+  if (readDesc) readDesc.textContent = readiness.desc;
+
+  // 3. Language Pills
+  const langPills = $('career-lang-pills');
+  if (langPills) {
+    langPills.innerHTML = (topLanguages || []).map(lang => 
+      `<span class="career-lang-pill">
+        <span class="lang-dot" style="background:${getLangColor(lang)}"></span>
+        <span>${escapeHtml(lang)}</span>
+      </span>`
+    ).join('');
+  }
+
+  // 4. Tab Counts
+  const internCount = matchedRoles.filter(r => r.type.includes('Internship')).length;
+  const juniorCount = matchedRoles.filter(r => r.type.includes('Junior') || r.type.includes('Entry')).length;
+  if ($('career-count-all')) $('career-count-all').textContent = matchedRoles.length;
+  if ($('career-count-intern')) $('career-count-intern').textContent = internCount;
+  if ($('career-count-junior')) $('career-count-junior').textContent = juniorCount;
+
+  // 5. Render Filtered Role Cards
+  function renderRoles(filter = 'all') {
+    const grid = $('career-roles-grid');
+    if (!grid) return;
+
+    let list = [...matchedRoles];
+    if (filter === 'Internship') {
+      list = list.filter(r => r.type.includes('Internship'));
+    } else if (filter === 'Junior') {
+      list = list.filter(r => r.type.includes('Junior') || r.type.includes('Entry'));
+    } else if (filter === 'high-match') {
+      list = list.filter(r => r.matchPct >= 80);
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = `<div class="neu-card" style="padding: 30px; text-align: center; grid-column: 1 / -1;">
+        <p style="color: var(--text-secondary);">No roles found for this filter. Try viewing All Roles.</p>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = list.map((role, idx) => `
+      <div class="career-role-card neu-card" style="animation-delay: ${idx * 60}ms;">
+        <div>
+          <div class="career-role-header">
+            <div>
+              <h3 class="career-role-title">${escapeHtml(role.title)}</h3>
+              <span class="career-role-type">${escapeHtml(role.type)} • ${escapeHtml(role.category)}</span>
+            </div>
+            <div class="career-match-badge">
+              <span class="career-match-pct">${role.matchPct}%</span>
+              <span class="career-match-label">Match</span>
+            </div>
+          </div>
+
+          <div class="career-match-bar-track">
+            <div class="career-match-bar-fill" style="width: ${role.matchPct}%;"></div>
+          </div>
+
+          <p class="career-role-desc">${escapeHtml(role.description)}</p>
+
+          <div class="career-skills-wrap">
+            <div class="career-section-label">Skills You Have</div>
+            <div class="career-skills-list" style="margin-bottom: 8px;">
+              ${role.skillsPossessed.map(s => `<span class="career-skill-tag possessed">✓ ${escapeHtml(s)}</span>`).join('')}
+            </div>
+            <div class="career-section-label">High-Impact Skills to Add</div>
+            <div class="career-skills-list">
+              ${role.skillsToLearn.map(s => `<span class="career-skill-tag to-learn">+ ${escapeHtml(s)}</span>`).join('')}
+            </div>
+          </div>
+
+          <div class="career-projects-wrap">
+            <div class="career-section-label">Recommended Portfolio Projects</div>
+            ${role.projectIdeas.map(p => `
+              <div class="career-project-item">
+                <span class="career-project-bullet">⚡</span>
+                <span>${escapeHtml(p)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="career-actions-row">
+          <button class="neu-button primary small btn-generate-strategy" data-role-id="${role.id}" style="width: 100%;">
+            🤖 Generate AI Job Strategy
+          </button>
+          
+          <div class="career-search-links">
+            <a href="${role.links.linkedin}" target="_blank" rel="noopener noreferrer" class="career-job-link linkedin" title="Search on LinkedIn">
+              <span>LinkedIn</span> ↗
+            </a>
+            <a href="${role.links.indeed}" target="_blank" rel="noopener noreferrer" class="career-job-link indeed" title="Search on Indeed">
+              <span>Indeed</span> ↗
+            </a>
+            <a href="${role.links.wellfound}" target="_blank" rel="noopener noreferrer" class="career-job-link wellfound" title="Search Startups on Wellfound">
+              <span>Wellfound</span> ↗
+            </a>
+            <a href="${role.links.google}" target="_blank" rel="noopener noreferrer" class="career-job-link" title="Search on Google Jobs">
+              <span>Google</span> ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    // Attach strategy button listeners
+    grid.querySelectorAll('.btn-generate-strategy').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const roleId = btn.dataset.roleId;
+        const targetRole = matchedRoles.find(r => r.id === roleId);
+        if (targetRole && onGenerateStrategy) {
+          onGenerateStrategy(targetRole);
+        }
+      });
+    });
+  }
+
+  // Initial render
+  renderRoles('all');
+
+  // Filter tabs listeners
+  document.querySelectorAll('.career-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.career-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRoles(btn.dataset.filter);
+    });
+  });
+}
+
