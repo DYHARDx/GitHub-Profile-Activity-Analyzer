@@ -2703,7 +2703,7 @@ Return a JSON object with this EXACT structure (no markdown fences, just pure JS
     const content = $("ai-strategy-content");
     if (!modal || !content) return;
     showEl(modal);
-    if (title) title.textContent = `${role.title} \u2014 AI Application Blueprint`;
+    if (title) title.innerHTML = `<span style="color:var(--accent)">AI Strategy:</span> ${role.title}`;
     if (sub) sub.textContent = `Targeting ${role.category} \u2022 Match ${role.matchPct}%`;
     content.innerHTML = `
     <div class="insight-loading neu-card" style="margin: 20px 0;">
