@@ -115,6 +115,51 @@ export const InsightsEngine = {
     }
   },
 
+  async generateJobs(profile, techStack, languages) {
+    const apiKey = CONFIG.GEMINI_API_KEY;
+    if (!apiKey || !apiKey.trim() || apiKey.startsWith('AQ.')) {
+      return ["Frontend Developer", "Backend Engineer", "Full Stack Developer"];
+    }
+
+    const langNames = Object.keys(languages || {}).slice(0, 5).join(', ');
+    const stack = (techStack || []).join(', ');
+    const loc = profile?.location || 'Remote';
+    
+    const prompt = `Based on the following developer profile, suggest exactly 3 specific job titles or roles they are highly suited for. 
+Keep the titles concise and professional (e.g. "React Frontend Developer", "Senior Python Engineer", "DevOps Intern").
+Profile Location: ${loc}
+Top Languages: ${langNames}
+Detected Frameworks/Tools: ${stack}
+
+Return ONLY a JSON array of strings. No markdown, no explanation.
+Example: ["Role 1", "Role 2", "Role 3"]`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL || 'gemini-3.7-flash'}:generateContent?key=${apiKey.trim()}`;
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 200 },
+    };
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) throw new Error(`Gemini status ${resp.status}`);
+      const data = await resp.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      const clean = text.replace(/```json?/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
+      return ["Software Engineer", "Frontend Developer", "Backend Engineer"];
+    } catch (e) {
+      console.warn('Job generation failed:', e);
+      return ["Software Engineer", "Frontend Developer", "Backend Engineer"];
+    }
+  },
+
   _buildPrompt(d) {
     return `You are a GitHub developer activity analyzer.
 Analyze ONLY the measurable GitHub metrics below. Return a valid JSON array of 7 insight objects.

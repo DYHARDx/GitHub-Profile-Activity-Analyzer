@@ -262,23 +262,32 @@
               GitHub metric.</p>
           </div>
 
-          <div class="streak-mini-row">
-            <div class="streak-mini neu-card">
-              <span class="streak-mini-label">Current Streak</span>
-              <span class="streak-mini-value" id="mini-current-streak">--</span>
-              <span class="streak-mini-unit">days</span>
-            </div>
-            <div class="streak-mini neu-card">
-              <span class="streak-mini-label">Longest Streak</span>
-              <span class="streak-mini-value" id="mini-longest-streak">--</span>
-              <span class="streak-mini-unit">days</span>
-            </div>
-          </div>
+          <div class="score-right-col" style="display: flex; flex-direction: column; gap: 24px; min-width: 0; width: 100%;">
+
           
           <div class="tech-stack-card neu-card" id="tech-stack-container" style="margin-top: 24px; display: none;">
             <h2 class="section-heading" style="font-size: 1.1rem; margin-bottom: 12px;">Detected Tech Stack</h2>
             <div id="tech-stack-chips" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
           </div>
+          
+          <div class="career-matcher-card neu-card" id="career-matcher-container" style="margin-top: 24px; display: none; background: linear-gradient(135deg, rgba(43, 88, 118, 0.1), rgba(78, 67, 118, 0.1)); border: 1px solid rgba(43, 88, 118, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h2 class="section-heading" style="font-size: 1.2rem; margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                Career Matcher
+              </h2>
+              <span style="font-size: 0.8rem; background: var(--accent); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600;">AI Powered</span>
+            </div>
+            <p style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 16px;">Based on your GitHub profile, activity score, and detected tech stack, here are 3 matching career paths and instant search links:</p>
+            <div id="career-roles-list" style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- Populated by JS -->
+              <div style="text-align: center; opacity: 0.6; padding: 20px;">
+                <div class="insight-spinner" aria-hidden="true" style="margin: 0 auto 10px;"></div>
+                Finding best matches...
+              </div>
+            </div>
+          </div>
+        </div>
         </div>
 
       </section>

@@ -7,6 +7,7 @@ import { ThemeManager } from './theme.js';
 import { ChatEngine } from './chat.js';
 import { ResumeManager } from './resume.js';
 import { TradingCardManager } from './trading-card.js';
+import { JobsManager } from './jobs.js';
 import { ApiClient, InsightsEngine } from './api.js';
 import { DataProcessor } from './data.js';
 import {
@@ -390,15 +391,15 @@ async function analyzeProfile(rawUsername) {
 
     setStatus('Preparing dashboard presentation...');
     renderProfile(state.profile);
-    renderStats(stats);
+    renderStats(stats, streaks);
     renderScore(scoreData);
-    renderStreakMini(streaks);
     renderActivity(state.contributionCalendar, state.commits, state.period);
     renderRepoHighlights();
     renderRepositories();
     renderLanguages(langStats);
     renderTechStack(state.techStack);
     renderInsights(state.insights);
+    JobsManager.runJobMatcher();
 
     ChatEngine.setContext({ ...analysisData, profile: state.profile });
 

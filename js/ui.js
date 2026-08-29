@@ -82,19 +82,18 @@ export function renderProfile(profile) {
   if (link) link.href = profile.html_url || `https://github.com/${profile.login}`;
 }
 
-export function renderStats(stats) {
+export function renderStats(stats, streaks = { current: 0, longest: 0 }) {
   const items = [
     { label: 'Total Stars', value: stats.totalStars, icon: '⭐', color: '#f79824' },
     { label: 'Total Forks', value: stats.totalForks, icon: '🍴', color: '#38c97a' },
     { label: 'Commits Analyzed', value: stats.totalCommits, icon: '📦', color: '#9f7aea' },
-    { label: 'Open Issues', value: stats.totalIssues, icon: '🐛', color: '#e85b5b' },
-    { label: 'Public Gists', value: stats.publicGists, icon: '📝', color: '#f79824' },
+    { label: 'Current Streak', value: streaks.current + 'd', icon: '🔥', color: '#ff6b81' },
+    { label: 'Longest Streak', value: streaks.longest + 'd', icon: '🏆', color: '#eab308' },
   ];
-
   $('stats-grid').innerHTML = items.map(item =>
-    `<div class="stat-card" role="listitem">
+    `<div class="stat-card neu-card" role="listitem">
       <div class="stat-icon" style="color:${item.color}">${item.icon}</div>
-      <div class="stat-value">${formatNumber(item.value)}</div>
+      <div class="stat-value">${typeof item.value === 'number' ? formatNumber(item.value) : escapeHtml(item.value)}</div>
       <div class="stat-label">${item.label}</div>
     </div>`
   ).join('');
