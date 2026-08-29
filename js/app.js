@@ -437,7 +437,7 @@ async function handleGenerateStrategy(role) {
   if (!modal || !content) return;
 
   showEl(modal);
-  if (title) title.textContent = `${role.title} — AI Application Blueprint`;
+  if (title) title.innerHTML = `<span style="color:var(--accent)">AI Strategy:</span> ${role.title}`;
   if (sub) sub.textContent = `Targeting ${role.category} • Match ${role.matchPct}%`;
 
   content.innerHTML = `
